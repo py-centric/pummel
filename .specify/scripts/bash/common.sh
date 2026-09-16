@@ -334,3 +334,14 @@ except Exception:
     return 1
 }
 
+# Resolve a template and print its content
+resolve_template_content() {
+    local template_name="$1"
+    local repo_root="$2"
+    local template_path
+    if template_path=$(resolve_template "$template_name" "$repo_root"); then
+        cat "$template_path"
+        return 0
+    fi
+    return 1
+}
