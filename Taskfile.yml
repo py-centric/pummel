@@ -1,0 +1,74 @@
+version: '3'
+
+vars:
+  CONTAINER_CLI:
+    sh: command -v podman >/dev/null 2>&1 && echo 'podman' || echo 'docker'
+  COMPOSE_CLI:
+    sh: command -v podman-compose >/dev/null 2>&1 && echo 'podman-compose' || echo 'docker compose'
+  MODE: '{{.MODE | default "local"}}'
+  PORT: '{{.PORT | default "8000"}}'
+  LOG_LEVEL: '{{.LOG_LEVEL | default "info"}}'
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  test:
+    desc: Run unit and integration tests (default features)
+    cmds:
+      - cargo test --all-targets
+
+  test:all:
+    desc: Run all tests across all optional features
+    cmds:
+      - cargo test --all-targets --all-features
+
+  test:coverage:
+    desc: Run code coverage analysis using cargo-tarpaulin
+    cmds:
+      - cargo tarpaulin --ignore-tests --skip-clean
+
+  lint:
+    desc: Run clippy linter in pedantic and security mode
+    cmds:
+      - cargo clippy --all-targets --all-features -- -D warnings
+
+  format:
+    desc: Format Rust codebase
+    cmds:
+      - cargo fmt
+
+  format:check:
+    desc: Check Rust codebase formatting
+    cmds:
+      - cargo fmt --check
+
+  audit:
+    desc: Audit dependencies for vulnerabilities and security advisories
+    cmds:
+      - cargo audit
+
+  build:
+    desc: Build pummel release binary
+    cmds:
+      - cargo build --release
+
+  docs:build:
+    desc: Build Sphinx documentation portal
+    dir: docs/sphinx
+    cmds:
+      - make html
+
+  docs:diagrams:
+    desc: Programmatically generate architecture and workflow diagrams
+    cmds:
+      - python3 docs/generate_diagrams.py
+
+  dev:hybrid:
+    desc: Run hybrid execution (mock background services and pummel CLI)
+    cmds:
+      - echo "Starting pummel in hybrid mode on port {{.PORT}} with log level {{.LOG_LEVEL}}..."
+      - cargo run -- sample_test.yaml --dry-run

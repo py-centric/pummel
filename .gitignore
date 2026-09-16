@@ -22,3 +22,23 @@ release/
 Thumbs.db
 *.tmp
 *.swp
+
+# Security and Credentials
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+
+# Test and Coverage Artifacts
+cobertura.xml
+coverage/
+tarpaulin-report.*
+
+# Documentation Builds
+docs/sphinx/build/
+
+# AI and Agent Scratchpads
+agent.md
+.agent/
+*.prompt.md
