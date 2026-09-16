@@ -202,7 +202,7 @@ Each SLA criterion supports:
 * **threshold** (required): Threshold value for the metric.
 * **subject** (optional): Specific request or scenario to scope the criterion.
 * **duration** (optional): Evaluation window duration string.
-* **action** (optional): Action on breach — ``stop`` (halt test), ``warn``
+* **action** (optional): Action on breach - ``stop`` (halt test), ``warn``
   (log warning), ``continue`` (record and continue). Default: ``stop``.
 
 Security Features

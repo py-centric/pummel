@@ -260,7 +260,7 @@ impl StateTranslator {
 
                 match req {
                     HTTPRequestDefinition::Simple(url) => {
-                        // Borrow session variables directly — no clone needed because
+                        // Borrow session variables directly - no clone needed because
                         // Simple requests never call get_session_data_mut.
                         let empty_vars = HashMap::new();
                         let variables = user

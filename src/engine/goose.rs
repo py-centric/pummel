@@ -156,7 +156,7 @@ async fn run_attack_inner(config: Configuration) -> Result<(), PummelError> {
 
             loop {
                 interval.tick().await;
-                // FIX: Use a read lock and evaluate directly — no O(n) clone.
+                // FIX: Use a read lock and evaluate directly - no O(n) clone.
                 let results = {
                     let lock = metrics_clone
                         .read()
@@ -263,7 +263,7 @@ async fn run_attack_inner(config: Configuration) -> Result<(), PummelError> {
 
     tracing::info!("Goose attack completed, generating report");
 
-    // US5: CLI Reporter — always print terminal summary
+    // US5: CLI Reporter - always print terminal summary
     tracing::debug!("[CLI] Generating terminal summary");
     let summary = CliSummary::from_metrics(&stats);
     summary.print();

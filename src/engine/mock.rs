@@ -337,7 +337,7 @@ mod tests {
                 contains: vec!["excluded content".to_string()],
                 subject: "body".to_string(),
                 regexp: false,
-                not: true, // negated — should NOT map to body
+                not: true, // negated - should NOT map to body
             }],
             ..Default::default()
         };

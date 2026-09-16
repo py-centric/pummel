@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_parse_time_unsupported_suffixes() {
-        // "h" and "d" are not supported — should fall through to raw parse
+        // "h" and "d" are not supported - should fall through to raw parse
         assert_eq!(parse_time_to_ms("1h"), 0); // "1h" can't parse as u64
         assert_eq!(parse_time_to_ms("1d"), 0); // "1d" can't parse as u64
     }

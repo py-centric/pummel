@@ -5,7 +5,7 @@ pummel natively supports chaos engineering workflows by combining lifecycle
 hooks, real-time SLA breach actions, and a dynamic HTTP control API. Together,
 these features let you inject faults into a running system, monitor the impact
 against service-level objectives, and automatically trigger rollback or
-remediation logic — all from a single YAML configuration file.
+remediation logic - all from a single YAML configuration file.
 
 Architecture Overview
 ---------------------

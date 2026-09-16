@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_extract_regex_full_match_no_group() {
-        // Pattern with no capture group — should use match(0)
+        // Pattern with no capture group - should use match(0)
         let body = "abc-123";
         let mut rules = HashMap::new();
         rules.insert("val".to_string(), r"[a-z]+-\d+".to_string());

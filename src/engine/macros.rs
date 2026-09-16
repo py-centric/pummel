@@ -57,7 +57,7 @@ enum SensitivePattern {
 }
 
 /// Checks if an environment variable name matches any sensitive pattern.
-/// Sensitive vars are **rejected** during resolution — they are never injected.
+/// Sensitive vars are **rejected** during resolution - they are never injected.
 #[must_use]
 pub fn is_sensitive_var(name: &str) -> bool {
     matches_any_pattern(name)
@@ -143,7 +143,7 @@ impl MacroEvaluator {
 
         // 2. Evaluate Environment Variables ${env.VAR_NAME} via EnvironmentLoader (with blocklist)
         let blocklist = sensitive_blocklist();
-        let vars = HashMap::new(); // empty — EnvironmentLoader falls through to std::env
+        let vars = HashMap::new(); // empty - EnvironmentLoader falls through to std::env
         output = EnvironmentLoader::resolve(&output, &vars, &blocklist)?;
 
         // 2b. Evaluate simple ${VAR_NAME} env vars (with blocklist rejection)

@@ -37,7 +37,7 @@ pub enum PummelError {
     Validation { field: String, reason: String },
     #[error("[MOCK] {reason}")]
     Mock { reason: String },
-    #[error("[NETWORK] {host}: {operation} failed — {details}")]
+    #[error("[NETWORK] {host}: {operation} failed - {details}")]
     Network {
         host: String,
         operation: String,
