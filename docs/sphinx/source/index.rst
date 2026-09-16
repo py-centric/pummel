@@ -13,6 +13,7 @@ pummel: High-Performance Taurus Runner in Rust
    distributed_mode
    example
    api_reference
+   licensing
 
 Introduction
 ------------

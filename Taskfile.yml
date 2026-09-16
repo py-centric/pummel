@@ -58,9 +58,8 @@ tasks:
 
   docs:build:
     desc: Build Sphinx documentation portal
-    dir: docs/sphinx
     cmds:
-      - make html
+      - uv run --with-requirements docs/requirements.txt sphinx-build -b html docs/sphinx/source docs/sphinx/build/html
 
   docs:diagrams:
     desc: Programmatically generate architecture and workflow diagrams
