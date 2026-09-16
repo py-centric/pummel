@@ -64,7 +64,9 @@ impl DynamicGrpcClient {
             let mut s = client
                 .server_reflection_info(tokio_stream::iter(vec![req]))
                 .await
-                .map_err(|e| PummelError::Internal(format!("gRPC FileDescriptor fetch failed: {e}")))?
+                .map_err(|e| {
+                    PummelError::Internal(format!("gRPC FileDescriptor fetch failed: {e}"))
+                })?
                 .into_inner();
 
             if let Some(Ok(resp)) = s.next().await {
@@ -165,7 +167,9 @@ impl DynamicGrpcClient {
             .into_inner();
 
         Ok(Box::new(stream.map(move |res| match res {
-            Ok(msg) => serde_json::to_string(&msg).map_err(|e| PummelError::Internal(e.to_string())),
+            Ok(msg) => {
+                serde_json::to_string(&msg).map_err(|e| PummelError::Internal(e.to_string()))
+            }
             Err(e) => Err(PummelError::Network {
                 host: "gRPC Stream".to_string(),
                 operation: "recv".to_string(),
@@ -247,7 +251,9 @@ impl DynamicGrpcClient {
             .into_inner();
 
         Ok(Box::new(response_stream.map(|res| match res {
-            Ok(msg) => serde_json::to_string(&msg).map_err(|e| PummelError::Internal(e.to_string())),
+            Ok(msg) => {
+                serde_json::to_string(&msg).map_err(|e| PummelError::Internal(e.to_string()))
+            }
             Err(e) => Err(PummelError::Network {
                 host: "gRPC Stream".to_string(),
                 operation: "recv".to_string(),

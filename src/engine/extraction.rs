@@ -150,7 +150,10 @@ mod tests {
         rules.insert("val".to_string(), "$.id".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_jsonpath("", &rules, &mut session);
-        assert!(session.variables.is_empty(), "empty body should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "empty body should produce no variables"
+        );
     }
 
     #[test]
@@ -159,7 +162,10 @@ mod tests {
         rules.insert("val".to_string(), "$.id".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_jsonpath("{not valid json", &rules, &mut session);
-        assert!(session.variables.is_empty(), "malformed JSON should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "malformed JSON should produce no variables"
+        );
     }
 
     #[test]
@@ -169,7 +175,10 @@ mod tests {
         rules.insert("missing".to_string(), "$.nonexistent".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_jsonpath(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "missing field should produce no variable");
+        assert!(
+            session.variables.is_empty(),
+            "missing field should produce no variable"
+        );
     }
 
     #[test]
@@ -178,7 +187,10 @@ mod tests {
         let rules = HashMap::new();
         let mut session = UserSession::default();
         ExtractionEngine::extract_jsonpath(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "empty rules should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "empty rules should produce no variables"
+        );
     }
 
     #[test]
@@ -210,7 +222,10 @@ mod tests {
         rules.insert("val".to_string(), r"token=([a-z]+)".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_regex(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "no match should produce no variable");
+        assert!(
+            session.variables.is_empty(),
+            "no match should produce no variable"
+        );
     }
 
     #[test]
@@ -220,7 +235,10 @@ mod tests {
         rules.insert("val".to_string(), "[invalid".to_string()); // invalid regex
         let mut session = UserSession::default();
         ExtractionEngine::extract_regex(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "invalid regex should produce no variable");
+        assert!(
+            session.variables.is_empty(),
+            "invalid regex should produce no variable"
+        );
     }
 
     #[test]
@@ -229,7 +247,10 @@ mod tests {
         rules.insert("val".to_string(), r"token=([a-z]+)".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_regex("", &rules, &mut session);
-        assert!(session.variables.is_empty(), "empty body should produce no variable");
+        assert!(
+            session.variables.is_empty(),
+            "empty body should produce no variable"
+        );
     }
 
     #[test]
@@ -238,7 +259,10 @@ mod tests {
         let rules = HashMap::new();
         let mut session = UserSession::default();
         ExtractionEngine::extract_regex(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "empty rules should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "empty rules should produce no variables"
+        );
     }
 
     #[test]
@@ -262,7 +286,10 @@ mod tests {
         rules.insert("val".to_string(), "//root/text()".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_xpath(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "malformed XML should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "malformed XML should produce no variables"
+        );
     }
 
     #[cfg(feature = "xpath")]
@@ -273,7 +300,10 @@ mod tests {
         rules.insert("val".to_string(), "[invalid-xpath".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_xpath(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "invalid xpath should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "invalid xpath should produce no variables"
+        );
     }
 
     #[cfg(feature = "xpath")]
@@ -284,7 +314,10 @@ mod tests {
         rules.insert("val".to_string(), "//missing/text()".to_string());
         let mut session = UserSession::default();
         ExtractionEngine::extract_xpath(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "xpath with no match should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "xpath with no match should produce no variables"
+        );
     }
 
     #[cfg(feature = "xpath")]
@@ -294,7 +327,10 @@ mod tests {
         let rules = HashMap::new();
         let mut session = UserSession::default();
         ExtractionEngine::extract_xpath(body, &rules, &mut session);
-        assert!(session.variables.is_empty(), "empty rules should produce no variables");
+        assert!(
+            session.variables.is_empty(),
+            "empty rules should produce no variables"
+        );
     }
 
     // --- UserSession ---
@@ -308,8 +344,12 @@ mod tests {
     #[test]
     fn test_user_session_variable_overwrite() {
         let mut session = UserSession::default();
-        session.variables.insert("key".to_string(), "val1".to_string());
-        session.variables.insert("key".to_string(), "val2".to_string());
+        session
+            .variables
+            .insert("key".to_string(), "val1".to_string());
+        session
+            .variables
+            .insert("key".to_string(), "val2".to_string());
         assert_eq!(session.variables.get("key").unwrap(), "val2");
     }
 }

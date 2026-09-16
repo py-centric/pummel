@@ -14,10 +14,7 @@ pub(crate) fn record_request(
     if let Some(rtm) = metrics
         && let Ok(mut lock) = rtm.write()
     {
-        let stats = lock
-            .endpoints
-            .entry(endpoint_name.to_string())
-            .or_default();
+        let stats = lock.endpoints.entry(endpoint_name.to_string()).or_default();
         stats.count += 1;
         stats.total_time_ms += duration_ms;
         stats.push_time(duration_ms);

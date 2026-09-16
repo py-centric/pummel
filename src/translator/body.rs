@@ -1,6 +1,6 @@
+use crate::engine::PummelError;
 use crate::engine::interpolation::Interpolator;
 use crate::engine::macros::MacroEvaluator;
-use crate::engine::PummelError;
 use std::collections::HashMap;
 
 /// Resolves the request body from either a file or inline definition.

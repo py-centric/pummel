@@ -3,7 +3,8 @@
 use pummel::engine;
 use pummel::engine::PummelError;
 use pummel::models::config::{
-    Configuration, DetailedRequest, ExecutionPlan, HTTPRequestDefinition, ScenarioDefinition,
+    Configuration, DetailedRequest, ExecutionPlan, HTTPRequestDefinition, Protocol,
+    ScenarioDefinition,
 };
 use std::collections::HashMap;
 
@@ -15,7 +16,7 @@ async fn test_grpc_integration() -> Result<(), PummelError> {
         ScenarioDefinition {
             requests: vec![HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
                 url: "unused".to_string(),
-                protocol: Some("grpc".to_string()),
+                protocol: Some(Protocol::Grpc),
                 method_name: Some("bzt_mock.MockService/Call".to_string()),
                 body: Some(r#"{"method": "test", "payload": "data"}"#.to_string()),
                 ..Default::default()

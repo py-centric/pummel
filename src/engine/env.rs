@@ -68,7 +68,10 @@ mod tests {
         vars.insert("AWS_SECRET_KEY".to_string(), "secret123".to_string());
         let result = EnvironmentLoader::resolve("${env.AWS_SECRET_KEY}", &vars, &["SECRET"]);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PummelError::Environment { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            PummelError::Environment { .. }
+        ));
     }
 
     #[test]

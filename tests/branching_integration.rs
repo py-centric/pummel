@@ -1,10 +1,10 @@
 mod common;
 
+use ntest::timeout;
 use pummel::engine::goose;
 use pummel::models::config::{
     Configuration, ExecutionPlan, HTTPRequestDefinition, ScenarioDefinition,
 };
-use ntest::timeout;
 use std::collections::HashMap;
 
 #[tokio::test]

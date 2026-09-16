@@ -1,8 +1,8 @@
+use clap::Parser;
 use pummel::engine;
 use pummel::engine::PummelError;
 use pummel::models::config::Configuration;
 use pummel::normalizer::{SchemaNormalizer, ShorthandConfiguration};
-use clap::Parser;
 use std::fs;
 use std::path::Path;
 
@@ -86,7 +86,11 @@ fn toml_to_json(toml_val: toml::Value) -> serde_json::Value {
     }
 }
 
-fn apply_override(root: &mut serde_json::Value, path_str: &str, val_str: &str) -> Result<(), String> {
+fn apply_override(
+    root: &mut serde_json::Value,
+    path_str: &str,
+    val_str: &str,
+) -> Result<(), String> {
     let parts: Vec<&str> = path_str.split('.').collect();
     let mut current = root;
 
@@ -117,11 +121,17 @@ fn apply_override(root: &mut serde_json::Value, path_str: &str, val_str: &str) -
                         }
                         arr[idx] = val;
                     } else {
-                        return Err(format!("Expected array index but found '{}' at path {}", part, path_str));
+                        return Err(format!(
+                            "Expected array index but found '{}' at path {}",
+                            part, path_str
+                        ));
                     }
                 }
                 _ => {
-                    return Err(format!("Cannot set property of non-object/non-array for path {}", path_str));
+                    return Err(format!(
+                        "Cannot set property of non-object/non-array for path {}",
+                        path_str
+                    ));
                 }
             }
             return Ok(());
@@ -129,7 +139,10 @@ fn apply_override(root: &mut serde_json::Value, path_str: &str, val_str: &str) -
 
         match current {
             serde_json::Value::Object(map) => {
-                let next_is_array_idx = parts.get(i + 1).and_then(|p| p.parse::<usize>().ok()).is_some();
+                let next_is_array_idx = parts
+                    .get(i + 1)
+                    .and_then(|p| p.parse::<usize>().ok())
+                    .is_some();
                 current = map.entry(part.to_string()).or_insert_with(|| {
                     if next_is_array_idx {
                         serde_json::Value::Array(Vec::new())
@@ -141,7 +154,10 @@ fn apply_override(root: &mut serde_json::Value, path_str: &str, val_str: &str) -
             serde_json::Value::Array(arr) => {
                 if let Ok(idx) = part.parse::<usize>() {
                     if idx >= arr.len() {
-                        let next_is_array_idx = parts.get(i + 1).and_then(|p| p.parse::<usize>().ok()).is_some();
+                        let next_is_array_idx = parts
+                            .get(i + 1)
+                            .and_then(|p| p.parse::<usize>().ok())
+                            .is_some();
                         arr.resize_with(idx + 1, || {
                             if next_is_array_idx {
                                 serde_json::Value::Array(Vec::new())
@@ -152,11 +168,17 @@ fn apply_override(root: &mut serde_json::Value, path_str: &str, val_str: &str) -
                     }
                     current = &mut arr[idx];
                 } else {
-                    return Err(format!("Expected array index but found '{}' at path {}", part, path_str));
+                    return Err(format!(
+                        "Expected array index but found '{}' at path {}",
+                        part, path_str
+                    ));
                 }
             }
             _ => {
-                return Err(format!("Expected object or array at part '{}' for path {}", part, path_str));
+                return Err(format!(
+                    "Expected object or array at part '{}' for path {}",
+                    part, path_str
+                ));
             }
         }
     }
@@ -198,11 +220,12 @@ async fn main() -> Result<(), PummelError> {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml"))
     {
         tracing::info!("Parsing YAML config: {}", config_path);
-        let yaml_val: serde_yaml::Value = serde_yaml::from_str(&content).map_err(|e| PummelError::Serde {
-            message: e.to_string(),
-            file_path: Some(config_path.clone()),
-            source: None,
-        })?;
+        let yaml_val: serde_yaml::Value =
+            serde_yaml::from_str(&content).map_err(|e| PummelError::Serde {
+                message: e.to_string(),
+                file_path: Some(config_path.clone()),
+                source: None,
+            })?;
         yaml_to_json(yaml_val)
     } else if Path::new(config_path)
         .extension()
@@ -227,11 +250,12 @@ async fn main() -> Result<(), PummelError> {
                 source: Some(Box::new(e)),
             })?
         } else {
-            let toml_val: toml::Value = toml::from_str(&content).map_err(|e| PummelError::Serde {
-                message: e.to_string(),
-                file_path: Some(config_path.clone()),
-                source: Some(Box::new(e)),
-            })?;
+            let toml_val: toml::Value =
+                toml::from_str(&content).map_err(|e| PummelError::Serde {
+                    message: e.to_string(),
+                    file_path: Some(config_path.clone()),
+                    source: Some(Box::new(e)),
+                })?;
             toml_to_json(toml_val)
         }
     } else {
@@ -253,7 +277,11 @@ async fn main() -> Result<(), PummelError> {
                 || path_trimmed.starts_with("services")
                 || path_trimmed.starts_with("api")
             {
-                tracing::info!("Applying config override: {} = {}", path_trimmed, val_trimmed);
+                tracing::info!(
+                    "Applying config override: {} = {}",
+                    path_trimmed,
+                    val_trimmed
+                );
                 if let Err(e) = apply_override(&mut json_val, path_trimmed, val_trimmed) {
                     tracing::warn!("Failed to apply override '{}': {}", opt, e);
                 }
@@ -262,11 +290,12 @@ async fn main() -> Result<(), PummelError> {
     }
 
     // Deserialize into target strongly typed Configuration
-    let config: Configuration = serde_json::from_value(json_val).map_err(|e| PummelError::Serde {
-        message: e.to_string(),
-        file_path: Some(config_path.clone()),
-        source: Some(Box::new(e)),
-    })?;
+    let config: Configuration =
+        serde_json::from_value(json_val).map_err(|e| PummelError::Serde {
+            message: e.to_string(),
+            file_path: Some(config_path.clone()),
+            source: Some(Box::new(e)),
+        })?;
 
     if args.dry_run {
         let summary = engine::validation::validate_config(&config).await;

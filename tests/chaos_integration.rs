@@ -1,12 +1,11 @@
 mod common;
 
+use ntest::timeout;
 use pummel::engine::goose;
 use pummel::models::config::{
-    ApiConfig, Configuration, DetailedRequest, ExecutionPlan, HttpMethod,
-    HTTPRequestDefinition, ScenarioDefinition, ServiceDefinition, SlaAction, SlaCriterion,
-    SlaMetric,
+    ApiConfig, Configuration, DetailedRequest, ExecutionPlan, HTTPRequestDefinition, HttpMethod,
+    ScenarioDefinition, ServiceDefinition, SlaAction, SlaCriterion, SlaMetric,
 };
-use ntest::timeout;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -209,5 +208,8 @@ async fn test_chaos_api_control() {
     let run_res = handle.await.unwrap();
     assert!(run_res.is_err());
     let err = run_res.unwrap_err();
-    assert!(matches!(err, pummel::engine::PummelError::SlaViolation { .. }));
+    assert!(matches!(
+        err,
+        pummel::engine::PummelError::SlaViolation { .. }
+    ));
 }

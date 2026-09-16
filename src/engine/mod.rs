@@ -13,7 +13,7 @@ pub(crate) mod pacing;
 #[cfg(feature = "grpc")]
 pub(crate) mod proto;
 pub mod reporting;
-pub(crate) mod sla;
+pub mod sla;
 pub(crate) mod utils;
 pub mod validation;
 

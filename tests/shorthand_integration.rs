@@ -1,8 +1,8 @@
 mod common;
 
+use ntest::timeout;
 use pummel::engine::goose;
 use pummel::normalizer::{SchemaNormalizer, ShorthandConfiguration};
-use ntest::timeout;
 use std::io::Write;
 use tempfile::NamedTempFile;
 

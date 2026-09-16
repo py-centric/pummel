@@ -262,10 +262,9 @@ impl InfluxDbReporter {
         }
 
         for point in points {
-            client
-                .query(point)
-                .await
-                .map_err(|e| PummelError::Internal(format!("InfluxDB real-time push failed: {e}")))?;
+            client.query(point).await.map_err(|e| {
+                PummelError::Internal(format!("InfluxDB real-time push failed: {e}"))
+            })?;
         }
 
         Ok(())

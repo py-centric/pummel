@@ -1,8 +1,8 @@
 mod common;
 
+use ntest::timeout;
 use pummel::engine::goose;
 use pummel::parser::yaml::YamlParser;
-use ntest::timeout;
 use std::io::Write;
 use tempfile::NamedTempFile;
 

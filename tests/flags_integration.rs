@@ -139,7 +139,7 @@ scenarios:
         .args(["run", "--", config_path.to_str().unwrap(), "--dry-run"])
         .output()
         .expect("failed to execute process");
-    
+
     // Clean up temporary file
     let _ = std::fs::remove_file(csv_name);
 
@@ -196,9 +196,13 @@ scenarios:
         ])
         .output()
         .expect("failed to execute process");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     // When console is disabled, no prints to stdout should occur from pummel
-    assert!(stdout.trim().is_empty(), "Stdout should be empty but got: {}", stdout);
+    assert!(
+        stdout.trim().is_empty(),
+        "Stdout should be empty but got: {}",
+        stdout
+    );
 }

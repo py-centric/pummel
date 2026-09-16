@@ -4,7 +4,7 @@ use pummel::engine;
 use pummel::engine::PummelError;
 use pummel::models::config::{
     AssertionDefinition, Configuration, DetailedRequest, ExecutionPlan, HTTPRequestDefinition,
-    ScenarioDefinition,
+    Protocol, ScenarioDefinition,
 };
 use std::collections::HashMap;
 
@@ -16,7 +16,7 @@ async fn test_websocket_integration() -> Result<(), PummelError> {
         ScenarioDefinition {
             requests: vec![HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
                 url: "/ws/chat".to_string(),
-                protocol: Some("websocket".to_string()),
+                protocol: Some(Protocol::Websocket),
                 message: Some("Hello Server".to_string()),
                 assert: vec![AssertionDefinition {
                     contains: vec!["Hello Client".to_string()],

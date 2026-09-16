@@ -1,5 +1,7 @@
 use crate::engine::PummelError;
-use crate::models::config::{Configuration, DetailedRequest, HttpMethod, HTTPRequestDefinition, Protocol};
+use crate::models::config::{
+    Configuration, DetailedRequest, HTTPRequestDefinition, HttpMethod, Protocol,
+};
 use ax_ws::{Message, WebSocket};
 use axum::{
     Router,
@@ -341,7 +343,10 @@ mod tests {
         };
         let response = generate_mock_response(&req);
         assert_eq!(response.status, 200);
-        assert!(response.body.is_empty(), "not-assertion should not contribute to body");
+        assert!(
+            response.body.is_empty(),
+            "not-assertion should not contribute to body"
+        );
     }
 
     #[test]
@@ -358,7 +363,10 @@ mod tests {
         };
         let response = generate_mock_response(&req);
         assert_eq!(response.status, 200);
-        assert!(response.body.is_empty(), "non-body subject should not contribute to body");
+        assert!(
+            response.body.is_empty(),
+            "non-body subject should not contribute to body"
+        );
     }
 
     #[test]

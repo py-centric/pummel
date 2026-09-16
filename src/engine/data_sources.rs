@@ -166,7 +166,10 @@ mod tests {
 
         let ds = CsvDataSource::new(&tmp);
         if let Ok(ds) = ds {
-            assert!(ds.get_record(0).is_none(), "empty CSV should have no records");
+            assert!(
+                ds.get_record(0).is_none(),
+                "empty CSV should have no records"
+            );
         }
         fs::remove_file(&tmp).unwrap();
     }

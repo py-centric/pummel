@@ -94,7 +94,9 @@ async fn run_attack_inner(config: Configuration) -> Result<(), PummelError> {
                             // Lock briefly, clone the bounded snapshot, then release before async I/O.
                             // The clone is bounded because RealTimeEndpointStats caps times at 10K.
                             let metrics_snapshot = {
-                                let lock = rt_metrics.read().unwrap_or_else(std::sync::PoisonError::into_inner);
+                                let lock = rt_metrics
+                                    .read()
+                                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                                 lock.clone()
                             };
                             if let Err(e) = InfluxDbReporter::push_real_time_metrics(
@@ -156,7 +158,9 @@ async fn run_attack_inner(config: Configuration) -> Result<(), PummelError> {
                 interval.tick().await;
                 // FIX: Use a read lock and evaluate directly — no O(n) clone.
                 let results = {
-                    let lock = metrics_clone.read().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let lock = metrics_clone
+                        .read()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     SlaEngine::evaluate_realtime(&criteria_clone, &lock)
                 };
                 for result in &results {
@@ -273,7 +277,10 @@ async fn run_attack_inner(config: Configuration) -> Result<(), PummelError> {
         r
     };
     for report_def in &config.reporting {
-        if let Some(reporter) = reporters.iter().find(|r| r.module_name() == report_def.module) {
+        if let Some(reporter) = reporters
+            .iter()
+            .find(|r| r.module_name() == report_def.module)
+        {
             reporter.report(report_def, &stats)?;
         }
     }
@@ -336,7 +343,9 @@ async fn start_api_server(
                 async move {
                     // FIX: Use a read lock; clone is bounded by MAX_TIMINGS cap.
                     let snapshot = {
-                        let lock = metrics.read().unwrap_or_else(std::sync::PoisonError::into_inner);
+                        let lock = metrics
+                            .read()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
                         lock.clone()
                     };
                     axum::Json(snapshot)

@@ -152,10 +152,10 @@ pub fn validate_files(files: &[&DataSourceDefinition]) -> HashMap<String, FileSt
 #[cfg(test)]
 mod tests {
     use super::*;
-use crate::models::config::{
-    Configuration, DataSourceDefinition, DetailedRequest, HttpMethod, HTTPRequestDefinition,
-    ScenarioDefinition,
-};
+    use crate::models::config::{
+        Configuration, DataSourceDefinition, DetailedRequest, HTTPRequestDefinition, HttpMethod,
+        ScenarioDefinition,
+    };
     use std::collections::HashMap;
     use std::fs::File;
     use tempfile::tempdir;

@@ -3,8 +3,8 @@
 use pummel::engine;
 use pummel::engine::PummelError;
 use pummel::models::config::{
-    AssertionDefinition, Configuration, DetailedRequest, ExecutionPlan, HTTPRequestDefinition,
-    ScenarioDefinition,
+    AssertionDefinition, Configuration, DetailedRequest, ExecutionPlan, GrpcMode,
+    HTTPRequestDefinition, Protocol, ScenarioDefinition,
 };
 use std::collections::HashMap;
 
@@ -16,9 +16,9 @@ async fn test_grpc_server_streaming_integration() -> Result<(), PummelError> {
         ScenarioDefinition {
             requests: vec![HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
                 url: "unused".to_string(),
-                protocol: Some("grpc".to_string()),
+                protocol: Some(Protocol::Grpc),
                 method_name: Some("bzt_mock.MockService/ServerStream".to_string()),
-                grpc_mode: Some("server-streaming".to_string()),
+                grpc_mode: Some(GrpcMode::ServerStreaming),
                 body: Some(r#"{"method": "test-stream", "payload": "data"}"#.to_string()),
                 assert: vec![AssertionDefinition {
                     contains: vec!["Part".to_string()],
@@ -75,9 +75,9 @@ async fn test_grpc_bidi_streaming_integration() -> Result<(), PummelError> {
         ScenarioDefinition {
             requests: vec![HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
                 url: "unused".to_string(),
-                protocol: Some("grpc".to_string()),
+                protocol: Some(Protocol::Grpc),
                 method_name: Some("bzt_mock.MockService/BidiStream".to_string()),
-                grpc_mode: Some("bidi-streaming".to_string()),
+                grpc_mode: Some(GrpcMode::BidiStreaming),
                 messages: vec![
                     r#"{"method": "msg1", "payload": "p1"}"#.to_string(),
                     r#"{"method": "msg2", "payload": "p2"}"#.to_string(),

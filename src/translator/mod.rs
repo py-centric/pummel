@@ -10,14 +10,18 @@ use crate::engine::PummelError;
 use crate::engine::control_flow::{AssertionEngine, ControlFlowEngine};
 use crate::engine::data_sources::CsvDataSource;
 use crate::engine::extraction::{ExtractionEngine, UserSession};
+#[cfg(feature = "grpc")]
+use crate::engine::grpc_dynamic::DynamicGrpcClient;
 use crate::engine::interpolation::Interpolator;
 use crate::engine::macros::MacroEvaluator;
 use crate::engine::pacing::PacingEngine;
 use crate::engine::reporting::RealTimeMetrics;
 use crate::engine::utils::parse_time_to_ms;
-use crate::models::config::{Configuration, HttpMethod, HTTPRequestDefinition, Protocol, ScenarioDefinition};
 #[cfg(feature = "grpc")]
 use crate::models::config::GrpcMode;
+use crate::models::config::{
+    Configuration, HTTPRequestDefinition, HttpMethod, Protocol, ScenarioDefinition,
+};
 use futures_util::{SinkExt, StreamExt};
 use goose::prelude::*;
 use std::collections::HashMap;
@@ -91,7 +95,10 @@ impl StateTranslator {
                             if let std::collections::hash_map::Entry::Vacant(e) =
                                 clients.entry(host.clone())
                             {
-                                tracing::info!("[DISCOVERY] Performing gRPC reflection for {}", host);
+                                tracing::info!(
+                                    "[DISCOVERY] Performing gRPC reflection for {}",
+                                    host
+                                );
                                 if let Ok(client) = DynamicGrpcClient::discover(&host).await {
                                     e.insert(Arc::new(client));
                                 } else {
@@ -141,12 +148,11 @@ impl StateTranslator {
                 .map_err(|e| PummelError::Goose(Box::new(e)))?;
 
             let mut host = host_override.clone();
-            if host.is_none() {
-                if let Some(scenario_def) = config.scenarios.get(&exec.scenario) {
-                    if let Some(extracted) = extract_default_host(scenario_def) {
-                        host = Some(extracted);
-                    }
-                }
+            if host.is_none()
+                && let Some(scenario_def) = config.scenarios.get(&exec.scenario)
+                && let Some(extracted) = extract_default_host(scenario_def)
+            {
+                host = Some(extracted);
             }
             let host = host.unwrap_or_else(|| "http://localhost".to_string());
             attack = *attack
@@ -201,8 +207,7 @@ impl StateTranslator {
                 };
 
                 for req in &scenario_def.requests {
-                    let transaction =
-                        Self::build_transaction(req, &ctx, exec.pacing.clone());
+                    let transaction = Self::build_transaction(req, &ctx, exec.pacing.clone());
 
                     scenario = scenario.register_transaction(transaction);
                 }
@@ -235,6 +240,8 @@ impl StateTranslator {
             let scenario_headers = ctx.scenario_headers;
             let ds_map = ctx.data_sources;
             let rt_metrics = ctx.real_time_metrics;
+            #[cfg(feature = "grpc")]
+            let _grpc_cls = ctx.grpc_clients;
 
             Box::pin(async move {
                 // Apply pacing delay before each request if configured
@@ -323,8 +330,8 @@ impl StateTranslator {
                                             let duration = start.elapsed().as_millis() as usize;
 
                                             // Update real-time metrics
-                        record_request(
-                            rt_metrics.as_ref(),
+                                            record_request(
+                                                rt_metrics.as_ref(),
                                                 &request_name,
                                                 duration,
                                                 success && response.is_some(),
@@ -381,75 +388,84 @@ impl StateTranslator {
                                 Some(Protocol::Grpc) => {
                                     #[cfg(feature = "grpc")]
                                     {
-                                    let method_name = d
-                                        .method_name
-                                        .as_deref()
-                                        .unwrap_or("UnknownService/UnknownMethod");
+                                        let method_name = d
+                                            .method_name
+                                            .as_deref()
+                                            .unwrap_or("UnknownService/UnknownMethod");
 
-                                    let final_body = eval_macros!(
-                                        resolve_body(
-                                            d.body.as_deref(),
-                                            d.body_file.as_deref(),
-                                            &variables,
-                                            record,
-                                        )
-                                        .await
-                                    );
+                                        let final_body = eval_macros!(
+                                            resolve_body(
+                                                d.body.as_deref(),
+                                                d.body_file.as_deref(),
+                                                &variables,
+                                                record,
+                                            )
+                                            .await
+                                        );
 
-                                    tracing::debug!(
-                                        "[GRPC] Calling {} at {}",
-                                        method_name,
-                                        full_url
-                                    );
-                                    let start = std::time::Instant::now();
+                                        tracing::debug!(
+                                            "[GRPC] Calling {} at {}",
+                                            method_name,
+                                            full_url
+                                        );
+                                        let start = std::time::Instant::now();
 
-                                    // Dynamic gRPC call via reflection
-                                    let host_key = if full_url.starts_with("http") {
-                                        full_url.clone()
-                                    } else {
-                                        format!("http://{full_url}")
-                                    };
+                                        // Dynamic gRPC call via reflection
+                                        let host_key = if full_url.starts_with("http") {
+                                            full_url.clone()
+                                        } else {
+                                            format!("http://{full_url}")
+                                        };
 
-                                    if let Some(client) = _grpc_cls.get(&host_key) {
-                                        match client.find_method(method_name) {
-                                            Ok(method_desc) => {
-                                                // Create a channel for this call
-                                                if let Ok(channel) =
-                                                    tonic::transport::Channel::from_shared(host_key)
+                                        if let Some(client) = _grpc_cls.get(&host_key) {
+                                            match client.find_method(method_name) {
+                                                Ok(method_desc) => {
+                                                    // Create a channel for this call
+                                                    if let Ok(channel) =
+                                                        tonic::transport::Channel::from_shared(
+                                                            host_key,
+                                                        )
                                                         .unwrap()
                                                         .connect()
                                                         .await
-                                                {
-                                                    match d.grpc_mode {
-                                                        Some(GrpcMode::ServerStreaming) => {
-                                                            match client
-                                                                .call_server_streaming(
-                                                                    channel,
-                                                                    method_desc,
-                                                                    &final_body,
-                                                                )
-                                                                .await
-                                                            {
-                                                                Ok(mut stream) => {
-                                                                    while let Some(
-                                                                        res_json_result,
-                                                                    ) = stream.next().await
-                                                                    {
-                                                                        if let Ok(res_json) =
-                                                                            res_json_result
+                                                    {
+                                                        match d.grpc_mode {
+                                                            Some(GrpcMode::ServerStreaming) => {
+                                                                match client
+                                                                    .call_server_streaming(
+                                                                        channel,
+                                                                        method_desc,
+                                                                        &final_body,
+                                                                    )
+                                                                    .await
+                                                                {
+                                                                    Ok(mut stream) => {
+                                                                        while let Some(
+                                                                            res_json_result,
+                                                                        ) =
+                                                                            stream.next().await
                                                                         {
-                                                                             let duration = start
-                                                                                .elapsed()
-                                                                                .as_millis()
-                                                                                as usize;
-                                                                            record_request(rt_metrics.as_ref(), &request_name, duration, true);
-                                                                            tracing::info!(
-                                                                                "[GRPC-STREAM] {} message: {}",
-                                                                                request_name,
-                                                                                res_json
-                                                                            );
+                                                                            if let Ok(res_json) =
+                                                                                res_json_result
+                                                                            {
+                                                                                let duration = start
+                                                                                    .elapsed()
+                                                                                    .as_millis()
+                                                                                    as usize;
+                                                                                record_request(
+                                                                                    rt_metrics
+                                                                                        .as_ref(),
+                                                                                    &request_name,
+                                                                                    duration,
+                                                                                    true,
+                                                                                );
+                                                                                tracing::info!(
+                                                                                    "[GRPC-STREAM] {} message: {}",
+                                                                                    request_name,
+                                                                                    res_json
+                                                                                );
 
-                                                                            if let Some(session) = user.get_session_data_mut::<UserSession>() {
+                                                                                if let Some(session) = user.get_session_data_mut::<UserSession>() {
                                                                                 let status = 200;
                                                                                 for a in &d.assert {
                                                                                     if let Err(e) = AssertionEngine::check_assertion(&res_json, status, a) {
@@ -460,54 +476,62 @@ impl StateTranslator {
                                                                                     ExtractionEngine::extract_regex(&res_json, rules, session);
                                                                                 }
                                                                             }
+                                                                            }
                                                                         }
                                                                     }
-                                                                }
-                                                                Err(e) => {
-                                                                    tracing::error!(
-                                                                        "[GRPC] Stream failed: {}",
-                                                                        e
-                                                                    );
+                                                                    Err(e) => {
+                                                                        tracing::error!(
+                                                                            "[GRPC] Stream failed: {}",
+                                                                            e
+                                                                        );
+                                                                    }
                                                                 }
                                                             }
-                                                        }
-                                                        Some(GrpcMode::ClientStreaming) => {
-                                                            let mut payloads = Vec::new();
-                                                            if d.messages.is_empty() {
-                                                                payloads.push(final_body);
-                                                            } else {
-                                                                for m in &d.messages {
-                                                                    let final_m =
+                                                            Some(GrpcMode::ClientStreaming) => {
+                                                                let mut payloads = Vec::new();
+                                                                if d.messages.is_empty() {
+                                                                    payloads.push(final_body);
+                                                                } else {
+                                                                    for m in &d.messages {
+                                                                        let final_m =
                                                                         Interpolator::interpolate(
                                                                             m, &variables,
                                                                         );
-                                                                    payloads.push(eval_macros!(
+                                                                        payloads.push(
+                                                                            eval_macros!(
                                                                         MacroEvaluator::evaluate(
                                                                             &final_m, record
                                                                         )
-                                                                    ));
+                                                                    ),
+                                                                        );
+                                                                    }
                                                                 }
-                                                            }
-                                                            match client
-                                                                .call_client_streaming(
-                                                                    channel,
-                                                                    method_desc,
-                                                                    payloads,
-                                                                )
-                                                                .await
-                                                            {
-                                                                 Ok(res_json) => {
-                                                                    let duration =
-                                                                        start.elapsed().as_millis()
+                                                                match client
+                                                                    .call_client_streaming(
+                                                                        channel,
+                                                                        method_desc,
+                                                                        payloads,
+                                                                    )
+                                                                    .await
+                                                                {
+                                                                    Ok(res_json) => {
+                                                                        let duration = start
+                                                                            .elapsed()
+                                                                            .as_millis()
                                                                             as usize;
-                                                                    record_request(rt_metrics.as_ref(), &request_name, duration, true);
-                                                                    tracing::info!(
-                                                                        "[GRPC-CLIENT] {} success: {}",
-                                                                        request_name,
-                                                                        res_json
-                                                                    );
+                                                                        record_request(
+                                                                            rt_metrics.as_ref(),
+                                                                            &request_name,
+                                                                            duration,
+                                                                            true,
+                                                                        );
+                                                                        tracing::info!(
+                                                                            "[GRPC-CLIENT] {} success: {}",
+                                                                            request_name,
+                                                                            res_json
+                                                                        );
 
-                                                                    if let Some(session) = user.get_session_data_mut::<UserSession>() {
+                                                                        if let Some(session) = user.get_session_data_mut::<UserSession>() {
                                                                         let status = 200;
                                                                         for a in &d.assert {
                                                                             if let Err(e) = AssertionEngine::check_assertion(&res_json, status, a) {
@@ -518,60 +542,69 @@ impl StateTranslator {
                                                                             ExtractionEngine::extract_regex(&res_json, rules, session);
                                                                         }
                                                                     }
-                                                                }
-                                                                Err(e) => {
-                                                                    tracing::error!(
-                                                                        "[GRPC] Client stream failed: {}",
-                                                                        e
-                                                                    );
+                                                                    }
+                                                                    Err(e) => {
+                                                                        tracing::error!(
+                                                                            "[GRPC] Client stream failed: {}",
+                                                                            e
+                                                                        );
+                                                                    }
                                                                 }
                                                             }
-                                                        }
-                                                        Some(GrpcMode::BidiStreaming) => {
-                                                            let mut payloads = Vec::new();
-                                                            if d.messages.is_empty() {
-                                                                payloads.push(final_body);
-                                                            } else {
-                                                                for m in &d.messages {
-                                                                    let final_m =
+                                                            Some(GrpcMode::BidiStreaming) => {
+                                                                let mut payloads = Vec::new();
+                                                                if d.messages.is_empty() {
+                                                                    payloads.push(final_body);
+                                                                } else {
+                                                                    for m in &d.messages {
+                                                                        let final_m =
                                                                         Interpolator::interpolate(
                                                                             m, &variables,
                                                                         );
-                                                                    payloads.push(eval_macros!(
+                                                                        payloads.push(
+                                                                            eval_macros!(
                                                                         MacroEvaluator::evaluate(
                                                                             &final_m, record
                                                                         )
-                                                                    ));
+                                                                    ),
+                                                                        );
+                                                                    }
                                                                 }
-                                                            }
-                                                            match client
-                                                                .call_bidi_streaming(
-                                                                    channel,
-                                                                    method_desc,
-                                                                    payloads,
-                                                                )
-                                                                .await
-                                                            {
-                                                                Ok(mut stream) => {
-                                                                    while let Some(
-                                                                        res_json_result,
-                                                                    ) = stream.next().await
-                                                                    {
-                                                                        if let Ok(res_json) =
-                                                                            res_json_result
+                                                                match client
+                                                                    .call_bidi_streaming(
+                                                                        channel,
+                                                                        method_desc,
+                                                                        payloads,
+                                                                    )
+                                                                    .await
+                                                                {
+                                                                    Ok(mut stream) => {
+                                                                        while let Some(
+                                                                            res_json_result,
+                                                                        ) =
+                                                                            stream.next().await
                                                                         {
-                                                                             let duration = start
-                                                                                .elapsed()
-                                                                                .as_millis()
-                                                                                as usize;
-                                                                            record_request(rt_metrics.as_ref(), &request_name, duration, true);
-                                                                            tracing::info!(
-                                                                                "[GRPC-BIDI] {} message: {}",
-                                                                                request_name,
-                                                                                res_json
-                                                                            );
+                                                                            if let Ok(res_json) =
+                                                                                res_json_result
+                                                                            {
+                                                                                let duration = start
+                                                                                    .elapsed()
+                                                                                    .as_millis()
+                                                                                    as usize;
+                                                                                record_request(
+                                                                                    rt_metrics
+                                                                                        .as_ref(),
+                                                                                    &request_name,
+                                                                                    duration,
+                                                                                    true,
+                                                                                );
+                                                                                tracing::info!(
+                                                                                    "[GRPC-BIDI] {} message: {}",
+                                                                                    request_name,
+                                                                                    res_json
+                                                                                );
 
-                                                                            if let Some(session) = user.get_session_data_mut::<UserSession>() {
+                                                                                if let Some(session) = user.get_session_data_mut::<UserSession>() {
                                                                                 let status = 200;
                                                                                 for a in &d.assert {
                                                                                     if let Err(e) = AssertionEngine::check_assertion(&res_json, status, a) {
@@ -582,39 +615,45 @@ impl StateTranslator {
                                                                                     ExtractionEngine::extract_regex(&res_json, rules, session);
                                                                                 }
                                                                             }
+                                                                            }
                                                                         }
                                                                     }
-                                                                }
-                                                                Err(e) => {
-                                                                    tracing::error!(
-                                                                        "[GRPC] Bidi stream failed: {}",
-                                                                        e
-                                                                    );
+                                                                    Err(e) => {
+                                                                        tracing::error!(
+                                                                            "[GRPC] Bidi stream failed: {}",
+                                                                            e
+                                                                        );
+                                                                    }
                                                                 }
                                                             }
-                                                        }
-                                                        _ => {
-                                                            // Default: unary
-                                                            match client
-                                                                .call_unary(
-                                                                    channel,
-                                                                    method_desc,
-                                                                    &final_body,
-                                                                )
-                                                                .await
-                                                            {
-                                                                 Ok(res_json) => {
-                                                                    let duration =
-                                                                        start.elapsed().as_millis()
+                                                            _ => {
+                                                                // Default: unary
+                                                                match client
+                                                                    .call_unary(
+                                                                        channel,
+                                                                        method_desc,
+                                                                        &final_body,
+                                                                    )
+                                                                    .await
+                                                                {
+                                                                    Ok(res_json) => {
+                                                                        let duration = start
+                                                                            .elapsed()
+                                                                            .as_millis()
                                                                             as usize;
-                                                                    record_request(rt_metrics.as_ref(), &request_name, duration, true);
-                                                                    tracing::info!(
-                                                                        "[GRPC] {} success: {}",
-                                                                        request_name,
-                                                                        res_json
-                                                                    );
+                                                                        record_request(
+                                                                            rt_metrics.as_ref(),
+                                                                            &request_name,
+                                                                            duration,
+                                                                            true,
+                                                                        );
+                                                                        tracing::info!(
+                                                                            "[GRPC] {} success: {}",
+                                                                            request_name,
+                                                                            res_json
+                                                                        );
 
-                                                                    if let Some(session) = user.get_session_data_mut::<UserSession>() {
+                                                                        if let Some(session) = user.get_session_data_mut::<UserSession>() {
                                                                         let status = 200;
                                                                         for a in &d.assert {
                                                                             if let Err(e) = AssertionEngine::check_assertion(&res_json, status, a) {
@@ -625,37 +664,43 @@ impl StateTranslator {
                                                                             ExtractionEngine::extract_regex(&res_json, rules, session);
                                                                         }
                                                                     }
-                                                                }
-                                                                Err(e) => {
-                                                                     let duration =
-                                                                        start.elapsed().as_millis()
+                                                                    }
+                                                                    Err(e) => {
+                                                                        let duration = start
+                                                                            .elapsed()
+                                                                            .as_millis()
                                                                             as usize;
-                                                                    record_request(rt_metrics.as_ref(), &request_name, duration, false);
-                                                                    tracing::error!(
-                                                                        "[GRPC] Call failed: {}",
-                                                                        e
-                                                                    );
+                                                                        record_request(
+                                                                            rt_metrics.as_ref(),
+                                                                            &request_name,
+                                                                            duration,
+                                                                            false,
+                                                                        );
+                                                                        tracing::error!(
+                                                                            "[GRPC] Call failed: {}",
+                                                                            e
+                                                                        );
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                     }
                                                 }
+                                                Err(e) => {
+                                                    tracing::error!(
+                                                        "[GRPC] Method discovery failed: {}",
+                                                        e
+                                                    );
+                                                }
                                             }
-                                            Err(e) => {
-                                                tracing::error!(
-                                                    "[GRPC] Method discovery failed: {}",
-                                                    e
-                                                );
-                                            }
-                                        }
-                                    } else {
-                                        tracing::warn!(
-                                            "[GRPC] No reflection client found for {}. Fallback to static call.",
-                                            host_key
-                                        );
-                                        // Fallback to the previous "static" implementation for the internal mock
-                                        use crate::engine::proto::bzt_mock;
-                                        if let Ok(mut client) = bzt_mock::mock_service_client::MockServiceClient::connect(full_url.clone()).await {
+                                        } else {
+                                            tracing::warn!(
+                                                "[GRPC] No reflection client found for {}. Fallback to static call.",
+                                                host_key
+                                            );
+                                            // Fallback to the previous "static" implementation for the internal mock
+                                            use crate::engine::proto::bzt_mock;
+                                            if let Ok(mut client) = bzt_mock::mock_service_client::MockServiceClient::connect(full_url.clone()).await {
                                             let req = tonic::Request::new(bzt_mock::MockRequest {
                                                 method: method_name.to_string(),
                                                 payload: final_body,
@@ -675,16 +720,17 @@ impl StateTranslator {
                                                 }
                                             }
                                         }
-                                    }
+                                        }
                                     }
                                     #[cfg(not(feature = "grpc"))]
                                     {
-                                        tracing::warn!("[GRPC] gRPC support not compiled in. Enable the 'grpc' feature.");
+                                        tracing::warn!(
+                                            "[GRPC] gRPC support not compiled in. Enable the 'grpc' feature."
+                                        );
                                     }
                                 }
                                 _ => {
-                                    let method =
-                                        d.method.clone().unwrap_or(HttpMethod::Get);
+                                    let method = d.method.clone().unwrap_or(HttpMethod::Get);
 
                                     // Body: prefer body_file if set, fall back to inline body
                                     let final_body = eval_macros!(
@@ -745,8 +791,8 @@ impl StateTranslator {
                                         if let Some(ref timeout_str) = d.timeout {
                                             let ms = parse_time_to_ms(timeout_str);
                                             if ms > 0 {
-                                                reqwest_builder =
-                                                    reqwest_builder.timeout(Duration::from_millis(ms));
+                                                reqwest_builder = reqwest_builder
+                                                    .timeout(Duration::from_millis(ms));
                                             }
                                         }
 
@@ -760,7 +806,9 @@ impl StateTranslator {
                                             GooseRequest::builder()
                                                 .method(method_enum.clone())
                                                 .path(request_name.as_str())
-                                                .set_request_builder(reqwest_builder.body(final_body.clone()))
+                                                .set_request_builder(
+                                                    reqwest_builder.body(final_body.clone()),
+                                                )
                                                 .build()
                                         };
 
@@ -777,8 +825,8 @@ impl StateTranslator {
                                             {
                                                 tracing::warn!(
                                                     "[THROTTLE] Connection error detected: {}. Throttling and retrying (attempt {}/3)...",
-                                                     err_str,
-                                                     attempts
+                                                    err_str,
+                                                    attempts
                                                 );
                                                 tokio::time::sleep(Duration::from_millis(50)).await;
                                                 continue;
@@ -884,22 +932,22 @@ fn extract_default_host(scenario_def: &ScenarioDefinition) -> Option<String> {
             HTTPRequestDefinition::Simple(url) => url.as_str(),
             HTTPRequestDefinition::Detailed(d) => d.url.as_str(),
         };
-        if url_str.starts_with("http://")
+        if (url_str.starts_with("http://")
             || url_str.starts_with("https://")
             || url_str.starts_with("ws://")
             || url_str.starts_with("wss://")
-            || url_str.starts_with("grpc://")
+            || url_str.starts_with("grpc://"))
+            && let Some((scheme, rest)) = url_str.split_once("://")
         {
-            if let Some((scheme, rest)) = url_str.split_once("://") {
-                let host_part = rest.split('/')
-                    .next()?
-                    .split('?')
-                    .next()?
-                    .split('#')
-                    .next()?;
-                if !host_part.is_empty() {
-                    return Some(format!("{}://{}", scheme, host_part));
-                }
+            let host_part = rest
+                .split('/')
+                .next()?
+                .split('?')
+                .next()?
+                .split('#')
+                .next()?;
+            if !host_part.is_empty() {
+                return Some(format!("{}://{}", scheme, host_part));
             }
         }
     }
