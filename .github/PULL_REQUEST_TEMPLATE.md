@@ -14,9 +14,9 @@
 
 ## Checklist
 
-- [ ] I have read the [constitution](specs/004-architectural-remediation/README.md)
+- [ ] I have read the [constitution](.specify/memory/constitution.md)
 - [ ] `cargo build` passes with no warnings
-- [ ] `cargo test` passes — all existing tests green
+- [ ] `cargo test` passes - all existing tests green
 - [ ] `cargo clippy --all-targets` is clean
 - [ ] `cargo fmt` has been run
 - [ ] New code has unit tests (TDD per Principle III)
