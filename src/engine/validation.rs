@@ -313,4 +313,146 @@ mod tests {
             FileStatus::Missing
         ));
     }
+
+    #[test]
+    fn test_validation_summary_is_valid() {
+        let mut summary = ValidationSummary {
+            file_existence: HashMap::new(),
+            syntax_valid: true,
+            normalization_successful: true,
+            translation_successful: true,
+        };
+        assert!(summary.is_valid());
+
+        summary
+            .file_existence
+            .insert("data.csv".to_string(), FileStatus::Found);
+        assert!(summary.is_valid());
+
+        summary
+            .file_existence
+            .insert("missing.csv".to_string(), FileStatus::Missing);
+        assert!(!summary.is_valid());
+
+        summary.file_existence.remove("missing.csv");
+        summary.syntax_valid = false;
+        assert!(!summary.is_valid());
+
+        summary.syntax_valid = true;
+        summary.normalization_successful = false;
+        assert!(!summary.is_valid());
+
+        summary.normalization_successful = true;
+        summary.translation_successful = false;
+        assert!(!summary.is_valid());
+    }
+
+    #[test]
+    fn test_validation_summary_report() {
+        let mut summary = ValidationSummary {
+            file_existence: HashMap::new(),
+            syntax_valid: true,
+            normalization_successful: true,
+            translation_successful: true,
+        };
+        summary
+            .file_existence
+            .insert("data.csv".to_string(), FileStatus::Found);
+        summary.report();
+
+        let mut failed_summary = ValidationSummary {
+            file_existence: HashMap::new(),
+            syntax_valid: false,
+            normalization_successful: false,
+            translation_successful: false,
+        };
+        failed_summary
+            .file_existence
+            .insert("missing.csv".to_string(), FileStatus::Missing);
+        failed_summary.report();
+    }
+
+    #[test]
+    fn test_validate_env_refs_checks_detailed_request_body_file() {
+        let mut scenarios = HashMap::new();
+        scenarios.insert(
+            "body_file_scenario".to_string(),
+            ScenarioDefinition {
+                requests: vec![HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                    url: "https://api.example.com".to_string(),
+                    method: Some(HttpMethod::Post),
+                    headers: None,
+                    body: None,
+                    label: None,
+                    body_file: Some("/path/to/${env.CLIENT_SECRET}_payload.json".to_string()),
+                    timeout: None,
+                    on_start: false,
+                    think_time: None,
+                    extract_jsonpath: None,
+                    extract_regexp: None,
+                    assert: vec![],
+                    protocol: None,
+                    message: None,
+                    method_name: None,
+                    execute_if: None,
+                    loop_while: None,
+                    ..Default::default()
+                }))],
+                weight: 1,
+                think_time: None,
+                data_sources: None,
+                headers: None,
+            },
+        );
+        let config = Configuration {
+            execution: vec![],
+            scenarios,
+            reporting: vec![],
+            services: vec![],
+            api: None,
+        };
+        let warnings = validate_env_refs(&config);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("CLIENT_SECRET"));
+    }
+
+    #[tokio::test]
+    async fn test_validate_config_with_valid_and_missing_sources() {
+        let dir = tempdir().unwrap();
+        let existing_csv = dir.path().join("users.csv");
+        File::create(&existing_csv).unwrap();
+
+        let mut scenarios = HashMap::new();
+        scenarios.insert(
+            "valid_scenario".to_string(),
+            ScenarioDefinition {
+                requests: vec![HTTPRequestDefinition::Simple(
+                    "https://httpbin.org/get".to_string(),
+                )],
+                weight: 1,
+                think_time: None,
+                data_sources: Some(vec![
+                    DataSourceDefinition::Simple(existing_csv.to_str().unwrap().to_string()),
+                    DataSourceDefinition::Simple("nonexistent_file.csv".to_string()),
+                ]),
+                headers: None,
+            },
+        );
+        let config = Configuration {
+            execution: vec![],
+            scenarios,
+            reporting: vec![],
+            services: vec![],
+            api: None,
+        };
+
+        let summary = validate_config(&config).await;
+        assert!(summary.syntax_valid);
+        assert!(summary.normalization_successful);
+        assert!(
+            !summary.is_valid(),
+            "Config should be invalid due to missing data source"
+        );
+        assert_eq!(summary.file_existence.len(), 2);
+    }
 }

@@ -46,4 +46,12 @@ requests = ["http://localhost:8080/"]
         let config = TomlParser::parse(file.path()).unwrap();
         assert_eq!(config.execution[0].concurrency, 5);
     }
+
+    #[test]
+    fn test_parse_toml_invalid_fails() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "invalid toml = =").unwrap();
+        let res = TomlParser::parse(file.path());
+        assert!(res.is_err());
+    }
 }

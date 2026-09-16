@@ -51,4 +51,12 @@ scenarios:
         assert_eq!(config.scenarios.len(), 1);
         assert!(config.scenarios.contains_key("basic"));
     }
+
+    #[test]
+    fn test_parse_yaml_invalid_fails() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, ": invalid yaml").unwrap();
+        let res = YamlParser::parse(file.path());
+        assert!(res.is_err());
+    }
 }

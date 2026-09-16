@@ -38,6 +38,7 @@ const SENSITIVE_PATTERNS: &[SensitivePattern] = &[
     SensitivePattern::EndsWith("_KEY"),
     SensitivePattern::EndsWith("_TOKEN"),
     SensitivePattern::EndsWith("_PASSWORD"),
+    SensitivePattern::EndsWith("_SECRET"),
     SensitivePattern::Contains("PASSWORD"),
     SensitivePattern::StartsWith("PRIVATE"),
     SensitivePattern::Exact("DATABASE_URL"),

@@ -53,4 +53,12 @@ mod tests {
         let config = JsonParser::parse(file.path()).unwrap();
         assert_eq!(config.execution[0].concurrency, 5);
     }
+
+    #[test]
+    fn test_parse_json_invalid_fails() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "{{ invalid json }}").unwrap();
+        let res = JsonParser::parse(file.path());
+        assert!(res.is_err());
+    }
 }
