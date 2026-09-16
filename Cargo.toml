@@ -51,7 +51,6 @@ sxd-document = { version = "0.3", optional = true }
 sxd-xpath = { version = "0.4", optional = true }
 
 [dev-dependencies]
-cargo-llvm-cov = "0.5"
 ntest = "0.9.5"
 tempfile = "3.8"
 tower = "0.5.3"
