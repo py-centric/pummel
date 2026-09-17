@@ -9,14 +9,14 @@ scenarios:
   sample-scenario:
     data-sources:
     - users.csv  # Uses 'id' and 'name' from the existing users.csv
-    
+
     requests:
     # 1. Login using data from CSV
     - url: "http://localhost:8080/login?user=${name}"
       method: GET
       label: login
       assert:
-      - contains: [200]
+      - contains: ["200"]
         subject: http-code
 
     # 2. Access profile using UUID macro
@@ -32,12 +32,9 @@ scenarios:
     # 4. Conditional request based on environment variable
     - url: "http://localhost:8080/api/debug"
       method: GET
-      if: "${env.DEBUG}" == "true"
+      if: '"${env.DEBUG}" == "true"'
 
 reporting:
-- module: html
-  filename: test_report.html
+- module: console
 - module: junit-xml
   filename: test_results.xml
-- module: prometheus
-  port: 8080
