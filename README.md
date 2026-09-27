@@ -7,7 +7,7 @@
 
 ## Why This Exists
 
-Performance testing tools are either easy to configure (JMeter, k6) or fast (custom Go/Rust harnesses), but rarely both. `pummel` lets you define complex multi-protocol scenarios in familiar Taurus YAML and execute them with near-zero overhead via the Goose engine — no JVM, no Node runtime, no container orchestration required.
+Performance testing tools are either easy to configure (JMeter, k6) or fast (custom Go/Rust harnesses), but rarely both. `pummel` lets you define complex multi-protocol scenarios in familiar Taurus YAML and execute them with near-zero overhead via the Goose engine: no JVM, no Node runtime, no container orchestration required.
 
 ## Quick Start
 
@@ -66,22 +66,35 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 ## CLI Reference
 
 ```
-Usage: pummel [OPTIONS] <CONFIG>
+Usage: pummel [OPTIONS] [CONFIG]
+       pummel import [OPTIONS] <FILE>
+
+Commands:
+  import                      Import external format (Postman, HAR, OpenAPI) into Pummel YAML
 
 Arguments:
-  <CONFIG>  Path to the configuration file (.yaml, .yml, .json, .toml)
+  [CONFIG]                    Path to configuration file (.yaml, .yml, .json, .toml)
 
 Options:
-  -d, --dry-run    Validate configuration and dependencies without executing
-  -m, --mock       Start an internal mock server based on the configuration
-      --mock-run   Start the mock server and run the configuration against it
-  -h, --help       Print help
-  -V, --version    Print version
+  -d, --dry-run               Validate configuration and dependencies without executing
+  -m, --mock                  Start an internal mock server based on the configuration
+      --mock-run              Start the mock server and run the configuration against it
+      --export <TARGET>       Export configuration to an external format ('k6', 'locust', 'taurus', 'postman', 'goose')
+  -e, --export-out <FILE>     Destination file path for exported script (defaults to stdout)
+      --export-k6 <FILE>      Convenience flag to export directly to a k6 script file
+      --export-locust <FILE>  Convenience flag to export directly to a Locust script file
+      --export-taurus <FILE>  Convenience flag to export directly to a canonical Taurus YAML file
+      --export-postman <FILE> Convenience flag to export directly to a Postman Collection JSON file
+      --export-goose <FILE>   Convenience flag to export directly to a pure Rust Goose script (main.rs)
+      --import <FORMAT>       Import configuration from external format ('postman', 'har', 'openapi')
+      --import-out <FILE>     Destination file path for imported configuration (defaults to stdout)
+  -h, --help                  Print help
+  -V, --version               Print version
 ```
 
 ### `--dry-run`
 
-Validates the configuration, checks that data source files exist, verifies the config translates to a Goose attack, and scans for sensitive environment variable references — all without sending any traffic.
+Validates the configuration, checks that data source files exist, verifies the config translates to a Goose attack, and scans for sensitive environment variable references: all without sending any traffic.
 
 ```bash
 pummel --dry-run load_test.yaml
@@ -110,10 +123,32 @@ pummel --mock load_test.yaml
 
 ### `--mock-run`
 
-Starts the mock server **and** runs the load test against it automatically. The host is overridden to point at the mock server — no real backend needed.
+Starts the mock server **and** runs the load test against it automatically. The host is overridden to point at the mock server: no real backend needed.
 
 ```bash
 pummel --mock-run load_test.yaml
+```
+
+### `--export` (k6, Locust, Taurus)
+
+Transpiles any declarative Pummel configuration into external tool formats, enabling seamless test portability across runners:
+
+* **k6** (`--export k6` or `--export-k6 <FILE>`): Generates idiomatic ES6 scripts with `options.stages`, SLA thresholds, `check()` blocks, and JSONPath/regex extractions.
+* **Locust** (`--export locust` or `--export-locust <FILE>`): Generates Python `locustfile.py` with `HttpUser`, `@task` methods, `LoadTestShape` stage control, assertions, and variable binding.
+* **Taurus** (`--export taurus` or `--export-taurus <FILE>`): Canonicalizes any scenario (including TOML shorthand, JSON configs, and `-o` CLI overrides) into clean Taurus YAML compatible with BlazeMeter and `bzt`.
+
+```bash
+# Export to k6
+pummel load_test.yaml --export k6 -e load_test.js
+pummel load_test.yaml --export-k6 load_test.js
+
+# Export to Locust
+pummel load_test.yaml --export locust -e locustfile.py
+pummel load_test.yaml --export-locust locustfile.py
+
+# Export to canonical Taurus YAML
+pummel shorthand.toml --export taurus -e canonical.yaml
+pummel shorthand.toml --export-taurus canonical.yaml
 ```
 
 ## Configuration Formats
@@ -326,6 +361,15 @@ reporting:
     filename: report.html
 ```
 
+### Grafana Observability Dashboards
+
+`pummel` includes turnkey Grafana 11+ dashboards and automated provisioning under `deploy/grafana/`:
+
+* **Pummel Load Test and Performance Dashboard** (`deploy/grafana/dashboards/pummel-performance-dashboard.json`): Real-time throughput (RPS), active virtual users, response time percentiles (p50, p90, p95, p99), error rates, HTTP status breakdown, and Loki trace diagnostics.
+* **k6 Compatibility Dashboard** (`deploy/grafana/dashboards/k6-load-test-dashboard.json`): Companion dashboard for visualizing tests exported from Pummel and executed in k6.
+* **Provisioned Datasources** (`deploy/grafana/provisioning/datasources/datasources.yaml`): Fixed UIDs (`Prometheus`, `InfluxDB`, `Loki`, `jaeger`).
+* **Alert Rules** (`deploy/grafana/provisioning/rules/load-test-alerts.yml`): Pre-configured Prometheus alerting rules for error rates and P99 latency SLA breaches.
+
 ## Architecture
 
 `pummel` follows a modular pipeline optimized for async concurrency. The core flow is:
@@ -512,6 +556,49 @@ The control API exposes `GET /metrics` (live JSON metrics) and `POST /control/st
 | `[ENV]` | Blocked sensitive environment variables |
 | `[NOT IMPLEMENTED]` | Features not yet available |
 | `[INTERNAL]` | Internal assertion failures |
+
+## Interoperability: Import & Export
+
+`pummel` provides seamless bidirectional conversion across major API, performance testing, and browser recording formats.
+
+### Importing Scenarios
+
+Ingest external definitions and traffic recordings into clean, production-ready Pummel YAML:
+
+```bash
+# Import Postman Collection (v2.0 / v2.1)
+pummel import api_collection.json --from postman -o pummel.yaml
+
+# Import Browser HTTP Archive (HAR v1.2) with static asset filtering
+pummel import recording.har --from har -o pummel.yaml
+
+# Import OpenAPI 3.0 / 3.1 specification (YAML or JSON)
+pummel import openapi.yaml --from openapi -o pummel.yaml
+
+# Auto-detect format from file extension or content
+pummel import recording.har -o pummel.yaml
+```
+
+### Exporting Scenarios
+
+Transpile Pummel configurations into external platform scripts or native code:
+
+```bash
+# Transpile to k6 (JavaScript)
+pummel load_test.yaml --export-k6 test_k6.js
+
+# Transpile to Locust (Python with LoadTestShape)
+pummel load_test.yaml --export-locust locustfile.py
+
+# Export canonical Taurus YAML (normalizing TOML shorthand or JSON configs)
+pummel shorthand.toml --export-taurus canonical.yaml
+
+# Export to Postman Collection (v2.1 JSON)
+pummel load_test.yaml --export-postman collection.json
+
+# Export to standalone pure Rust Goose harness (main.rs)
+pummel load_test.yaml --export-goose main.rs
+```
 
 ## Contributing
 
