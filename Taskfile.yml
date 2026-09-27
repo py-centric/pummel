@@ -71,3 +71,46 @@ tasks:
     cmds:
       - echo "Starting pummel in hybrid mode on port {{.PORT}} with log level {{.LOG_LEVEL}}..."
       - cargo run -- sample_test.yaml --dry-run
+
+  export:k6:
+    desc: Transpile a Pummel scenario to an idiomatic k6 script
+    cmds:
+      - cargo run -- examples/22-k6-export.yaml --export k6 -e target/k6_export.js
+      - echo "Exported k6 script generated at target/k6_export.js"
+
+  export:locust:
+    desc: Transpile a Pummel scenario to a Python Locust script
+    cmds:
+      - cargo run -- examples/23-locust-export.yaml --export locust -e target/locustfile.py
+      - echo "Exported Locust script generated at target/locustfile.py"
+
+  export:taurus:
+    desc: Canonicalize a scenario to standard Taurus YAML
+    cmds:
+      - cargo run -- examples/15-shorthand.toml --export taurus -e target/canonical_taurus.yaml
+      - echo "Canonical Taurus YAML generated at target/canonical_taurus.yaml"
+
+  export:postman:
+    desc: Export a Pummel scenario to a Postman Collection v2.1 JSON file
+    cmds:
+      - cargo run -- examples/22-k6-export.yaml --export postman -e target/pummel_collection.json
+      - echo "Exported Postman Collection generated at target/pummel_collection.json"
+
+  export:goose:
+    desc: Export a Pummel scenario to a standalone pure Rust Goose script (main.rs)
+    cmds:
+      - cargo run -- examples/22-k6-export.yaml --export goose -e target/main.rs
+      - echo "Exported standalone Goose script generated at target/main.rs"
+
+  import:postman:
+    desc: Ingest a Postman Collection JSON into Pummel YAML configuration
+    cmds:
+      - cargo run -- import target/pummel_collection.json --from postman -o target/imported_postman.yaml
+      - echo "Imported Pummel YAML generated at target/imported_postman.yaml"
+
+  observability:dashboards:
+    desc: Validate and verify Grafana dashboard JSON formatting
+    cmds:
+      - python3 -m json.tool deploy/grafana/dashboards/pummel-performance-dashboard.json > /dev/null
+      - python3 -m json.tool deploy/grafana/dashboards/k6-load-test-dashboard.json > /dev/null
+      - echo "All Grafana dashboard JSON files validated successfully."
