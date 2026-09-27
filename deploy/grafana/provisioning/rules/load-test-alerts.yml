@@ -1,0 +1,32 @@
+groups:
+  - name: pummel_load_test_alerts
+    rules:
+      - alert: PummelHighErrorRate
+        expr: (sum(rate(pummel_requests_failed_total[1m])) / sum(rate(pummel_requests_total[1m]))) > 0.05
+        for: 15s
+        labels:
+          severity: critical
+          team: performance
+        annotations:
+          summary: "Pummel Load Test Error Rate Exceeded 5%"
+          description: "Target service error rate is currently {{ $value | humanizePercentage }} (threshold: 5%). Check backend service logs."
+
+      - alert: PummelP99LatencyBreach
+        expr: pummel_response_time_p99_ms > 500
+        for: 30s
+        labels:
+          severity: warning
+          team: performance
+        annotations:
+          summary: "Pummel Load Test P99 Latency SLA Breach"
+          description: "P99 latency is {{ $value }}ms (SLA threshold: 500ms)."
+
+      - alert: PummelActiveUsersDropped
+        expr: pummel_active_users == 0 and pummel_test_running == 1
+        for: 30s
+        labels:
+          severity: critical
+          team: performance
+        annotations:
+          summary: "Pummel Virtual Users Unexpectedly Dropped to Zero"
+          description: "Load test is marked as running but active virtual users dropped to 0."

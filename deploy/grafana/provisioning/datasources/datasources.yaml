@@ -1,0 +1,53 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    uid: Prometheus
+    url: http://localhost:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 5s
+
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    uid: InfluxDB
+    url: http://localhost:8086
+    database: load_tests
+    editable: false
+    jsonData:
+      httpMode: GET
+      timeInterval: 5s
+
+  - name: Loki
+    type: loki
+    access: proxy
+    uid: Loki
+    url: http://localhost:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: jaeger
+          matcherRegex: '"trace_id":\s*"([a-f0-9]+)"'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    uid: jaeger
+    url: http://localhost:16686
+    editable: false
+    jsonData:
+      tracesToLogs:
+        datasourceUid: Loki
+        filterBySpan: true
+        filterByTrace: true
+        tags:
+          - key: service.name
+            value: service
