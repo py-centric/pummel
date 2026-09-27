@@ -23,3 +23,27 @@ pub(crate) fn record_request(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_record_request_success_and_failure() {
+        let rtm = Arc::new(RwLock::new(RealTimeMetrics::default()));
+        record_request(Some(&rtm), "/api/test", 150, true);
+        record_request(Some(&rtm), "/api/test", 250, false);
+
+        let lock = rtm.read().unwrap();
+        let stats = lock.endpoints.get("/api/test").unwrap();
+        assert_eq!(stats.count, 2);
+        assert_eq!(stats.total_time_ms, 400);
+        assert_eq!(stats.failures, 1);
+        assert_eq!(stats.times, vec![150, 250]);
+    }
+
+    #[test]
+    fn test_record_request_none_metrics() {
+        record_request(None, "/api/none", 100, false);
+    }
+}

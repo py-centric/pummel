@@ -286,4 +286,14 @@ mod tests {
         assert!(ds.get_record(0).is_none());
         assert!(ds.get_record(100).is_none());
     }
+
+    #[test]
+    fn test_check_file_size_nonexistent_file() {
+        let result = check_file_size(Path::new("nonexistent_pummel_file_xyz.csv"));
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PummelError::Io { .. } => {}
+            other => panic!("Expected Io error, got {other:?}"),
+        }
+    }
 }

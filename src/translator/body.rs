@@ -43,3 +43,48 @@ pub(crate) async fn resolve_body(
     let final_body = MacroEvaluator::evaluate(&raw, record)?;
     Ok(final_body)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_resolve_body_inline_interpolation() {
+        let mut vars = HashMap::new();
+        vars.insert("name".to_string(), "World".to_string());
+        let res = resolve_body(Some("Hello, ${name}!"), None, &vars, None)
+            .await
+            .unwrap();
+        assert_eq!(res, "Hello, World!");
+    }
+
+    #[tokio::test]
+    async fn test_resolve_body_from_file() {
+        let vars = HashMap::new();
+        let res = resolve_body(None, Some("Cargo.toml"), &vars, None)
+            .await
+            .unwrap();
+        assert!(res.contains("pummel"));
+    }
+
+    #[tokio::test]
+    async fn test_resolve_body_path_traversal_rejected() {
+        let vars = HashMap::new();
+        let res = resolve_body(None, Some("../../etc/passwd"), &vars, None).await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_resolve_body_directory_read_error() {
+        let vars = HashMap::new();
+        let res = resolve_body(None, Some("src"), &vars, None).await.unwrap();
+        assert_eq!(res, "");
+    }
+
+    #[tokio::test]
+    async fn test_resolve_body_empty_defaults() {
+        let vars = HashMap::new();
+        let res = resolve_body(None, None, &vars, None).await.unwrap();
+        assert_eq!(res, "");
+    }
+}

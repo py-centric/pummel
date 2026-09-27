@@ -982,7 +982,9 @@ fn parse_think_time(s: &str) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::config::{DetailedRequest, ExecutionPlan, Protocol, ScenarioDefinition};
+    use crate::models::config::{
+        AssertionDefinition, DetailedRequest, ExecutionPlan, Protocol, ScenarioDefinition,
+    };
 
     #[tokio::test]
     async fn test_translate_basic() {
@@ -1110,5 +1112,284 @@ mod tests {
         let scenario_def = scenarios.get("test").unwrap();
         let extracted = extract_default_host(scenario_def);
         assert_eq!(extracted, Some("https://my-domain.org:9000".to_string()));
+    }
+
+    #[test]
+    fn test_parse_think_time_range_and_fixed() {
+        assert_eq!(parse_think_time("100ms-500ms"), (100, 500));
+        assert_eq!(parse_think_time("250ms"), (250, 250));
+    }
+
+    #[test]
+    fn test_extract_default_host_none_when_relative() {
+        let scenario_def = ScenarioDefinition {
+            requests: vec![
+                HTTPRequestDefinition::Simple("/relative-1".to_string()),
+                HTTPRequestDefinition::Simple("relative-2".to_string()),
+            ],
+            weight: 1,
+            think_time: None,
+            data_sources: None,
+            headers: None,
+        };
+        assert_eq!(extract_default_host(&scenario_def), None);
+    }
+
+    #[tokio::test]
+    async fn test_translate_html_reporting_on_start_and_headers() {
+        let mut scenarios = HashMap::new();
+        scenarios.insert(
+            "full_features".to_string(),
+            ScenarioDefinition {
+                requests: vec![
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: "https://example.com/api/init".to_string(),
+                        method: Some(HttpMethod::Post),
+                        on_start: true,
+                        timeout: Some("5000ms".to_string()),
+                        headers: Some(HashMap::from([("X-Req".to_string(), "1".to_string())])),
+                        ..Default::default()
+                    })),
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: "https://example.com/api/update".to_string(),
+                        method: Some(HttpMethod::Put),
+                        headers: None,
+                        ..Default::default()
+                    })),
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: "https://example.com/api/delete".to_string(),
+                        method: Some(HttpMethod::Delete),
+                        ..Default::default()
+                    })),
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: "https://example.com/api/patch".to_string(),
+                        method: Some(HttpMethod::Patch),
+                        ..Default::default()
+                    })),
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: "https://example.com/api/head".to_string(),
+                        method: Some(HttpMethod::Head),
+                        ..Default::default()
+                    })),
+                ],
+                weight: 1,
+                think_time: Some("100ms-200ms".to_string()),
+                data_sources: None,
+                headers: Some(HashMap::from([(
+                    "X-Scenario".to_string(),
+                    "global".to_string(),
+                )])),
+            },
+        );
+
+        let config = Configuration {
+            execution: vec![ExecutionPlan {
+                concurrency: 2,
+                ramp_up: "1s".to_string(),
+                hold_for: "2s".to_string(),
+                scenario: "full_features".to_string(),
+                throughput: None,
+                steps: None,
+                pacing: None,
+            }],
+            scenarios,
+            reporting: vec![crate::models::config::ReportingDefinition {
+                module: "html".to_string(),
+                filename: Some("target/report.html".to_string()),
+                ..Default::default()
+            }],
+            services: vec![],
+            api: None,
+        };
+
+        let attack = StateTranslator::translate(&config, None, None).await;
+        assert!(attack.is_ok());
+    }
+
+    #[test]
+    fn test_log_macro_error() {
+        log_macro_error(&PummelError::Environment {
+            var: "SECRET".to_string(),
+            reason: "Access denied".to_string(),
+        });
+    }
+
+    async fn start_test_server() -> (std::net::SocketAddr, tokio::task::JoinHandle<()>) {
+        use axum::Router;
+        use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+        use axum::routing::{any, get};
+
+        let app = Router::new()
+            .route(
+                "/api/test",
+                any(|| async { (axum::http::StatusCode::OK, "hello ok 123") }),
+            )
+            .route(
+                "/ws",
+                get(|ws: WebSocketUpgrade| async {
+                    ws.on_upgrade(|mut socket: WebSocket| async move {
+                        while let Some(Ok(msg)) = socket.recv().await {
+                            if let Message::Text(text) = msg {
+                                let _ = socket
+                                    .send(Message::Text(format!("{text}-pong").into()))
+                                    .await;
+                            }
+                        }
+                    })
+                }),
+            );
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        (addr, handle)
+    }
+
+    #[tokio::test]
+    async fn test_attack_execution_detailed_methods_ws_and_flow() {
+        let (addr, handle) = start_test_server().await;
+
+        let mut scenarios = HashMap::new();
+        scenarios.insert(
+            "full_attack".to_string(),
+            ScenarioDefinition {
+                requests: vec![
+                    // 1. POST with headers, timeout, body, assertions, extract_regexp
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Post),
+                        label: Some("post_req".to_string()),
+                        headers: Some(HashMap::from([(
+                            "X-Req-Header".to_string(),
+                            "ReqVal".to_string(),
+                        )])),
+                        body: Some("{\"hello\": \"world\"}".to_string()),
+                        timeout: Some("2s".to_string()),
+                        assert: vec![AssertionDefinition {
+                            contains: vec!["ok".to_string()],
+                            subject: "body".to_string(),
+                            regexp: false,
+                            not: false,
+                        }],
+                        extract_regexp: Some(HashMap::from([(
+                            "my_var".to_string(),
+                            r"hello (\w+)".to_string(),
+                        )])),
+                        ..Default::default()
+                    })),
+                    // 2. PUT with body
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Put),
+                        body: Some("put body".to_string()),
+                        ..Default::default()
+                    })),
+                    // 3. DELETE
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Delete),
+                        ..Default::default()
+                    })),
+                    // 4. PATCH
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Patch),
+                        ..Default::default()
+                    })),
+                    // 5. HEAD
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Head),
+                        ..Default::default()
+                    })),
+                    // 6. Failing assertion (triggers user.set_failure)
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Get),
+                        assert: vec![AssertionDefinition {
+                            contains: vec!["FAILED_TO_FIND_THIS".to_string()],
+                            subject: "body".to_string(),
+                            regexp: false,
+                            not: false,
+                        }],
+                        ..Default::default()
+                    })),
+                    // 7. execute_if condition false (early return)
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Get),
+                        execute_if: Some("never_true == 1".to_string()),
+                        ..Default::default()
+                    })),
+                    // 8. loop_while condition
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        method: Some(HttpMethod::Get),
+                        loop_while: Some("count < 1".to_string()),
+                        ..Default::default()
+                    })),
+                    // 9. WebSocket request
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("ws://{addr}/ws"),
+                        protocol: Some(Protocol::Ws),
+                        message: Some("ping".to_string()),
+                        assert: vec![AssertionDefinition {
+                            contains: vec!["pong".to_string()],
+                            subject: "body".to_string(),
+                            regexp: false,
+                            not: false,
+                        }],
+                        extract_regexp: Some(HashMap::from([(
+                            "ws_reply".to_string(),
+                            r"(\w+)-pong".to_string(),
+                        )])),
+                        ..Default::default()
+                    })),
+                    // 10. gRPC protocol check
+                    HTTPRequestDefinition::Detailed(Box::new(DetailedRequest {
+                        url: format!("http://{addr}/api/test"),
+                        protocol: Some(Protocol::Grpc),
+                        method_name: Some("test.Service/Method".to_string()),
+                        ..Default::default()
+                    })),
+                    // 11. Simple request
+                    HTTPRequestDefinition::Simple(format!("http://{addr}/api/test")),
+                ],
+                weight: 1,
+                think_time: None,
+                data_sources: None,
+                headers: Some(HashMap::from([(
+                    "X-Scenario".to_string(),
+                    "ScenarioHeader".to_string(),
+                )])),
+            },
+        );
+
+        let config = Configuration {
+            execution: vec![ExecutionPlan {
+                concurrency: 1,
+                ramp_up: "0s".to_string(),
+                hold_for: "1s".to_string(),
+                scenario: "full_attack".to_string(),
+                throughput: Some(200),
+                steps: None,
+                pacing: Some(crate::models::config::PacingConfig {
+                    rate: 50,
+                    per: "1s".to_string(),
+                    randomize: false,
+                }),
+            }],
+            scenarios,
+            reporting: vec![],
+            services: vec![],
+            api: None,
+        };
+
+        let result = crate::engine::goose::run_attack(config).await;
+        handle.abort();
+        assert!(result.is_ok());
     }
 }

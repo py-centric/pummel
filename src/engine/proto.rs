@@ -2,7 +2,8 @@
     clippy::missing_errors_doc,
     clippy::doc_markdown,
     clippy::default_trait_access,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::result_large_err
 )]
 pub mod bzt_mock {
     tonic::include_proto!("bzt_mock");

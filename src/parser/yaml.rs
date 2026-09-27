@@ -11,10 +11,13 @@ impl YamlParser {
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<Configuration, PummelError> {
         let path = path.as_ref();
         let content = fs::read_to_string(path)?;
-        serde_yaml::from_str(&content).map_err(|e| PummelError::Serde {
-            message: e.to_string(),
-            file_path: Some(path.to_string_lossy().to_string()),
-            source: None,
+        serde_yaml::from_str(&content).map_err(|e| {
+            let msg = e.to_string();
+            PummelError::Serde {
+                message: msg,
+                file_path: Some(path.to_string_lossy().to_string()),
+                source: Some(Box::new(e)),
+            }
         })
     }
 }
@@ -58,5 +61,19 @@ scenarios:
         writeln!(file, ": invalid yaml").unwrap();
         let res = YamlParser::parse(file.path());
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_parse_yaml_missing_file_fails() {
+        let res = YamlParser::parse(Path::new("/nonexistent/file/path.yaml"));
+        assert!(matches!(res, Err(PummelError::Io { .. })));
+    }
+
+    #[test]
+    fn test_parse_yaml_syntax_error() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "execution: [unclosed").unwrap();
+        let res = YamlParser::parse(file.path());
+        assert!(matches!(res, Err(PummelError::Serde { .. })));
     }
 }

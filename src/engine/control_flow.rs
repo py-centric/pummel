@@ -215,4 +215,57 @@ mod tests {
         assert!(ControlFlowEngine::evaluate_condition("exists", &vars));
         assert!(!ControlFlowEngine::evaluate_condition("missing", &vars));
     }
+
+    #[test]
+    fn test_assertion_regex_matching_and_not() {
+        let assertion = AssertionDefinition {
+            subject: "body".to_string(),
+            contains: vec![r#"user_\d+"#.to_string()],
+            regexp: true,
+            not: false,
+        };
+        assert!(AssertionEngine::check_assertion("welcome user_42!", 200, &assertion).is_ok());
+        assert!(AssertionEngine::check_assertion("welcome guest!", 200, &assertion).is_err());
+
+        let not_assertion = AssertionDefinition {
+            subject: "body".to_string(),
+            contains: vec![r#"error_\d+"#.to_string()],
+            regexp: true,
+            not: true,
+        };
+        assert!(AssertionEngine::check_assertion("all good", 200, &not_assertion).is_ok());
+        assert!(
+            AssertionEngine::check_assertion("error_500 occurred", 200, &not_assertion).is_err()
+        );
+    }
+
+    #[test]
+    fn test_evaluate_condition_empty_and_comparisons() {
+        let vars = HashMap::new();
+        assert!(ControlFlowEngine::evaluate_condition("   ", &vars));
+
+        let mut string_vars = HashMap::new();
+        string_vars.insert("left".to_string(), "apple".to_string());
+
+        assert!(ControlFlowEngine::evaluate_condition(
+            "left < \"banana\"",
+            &string_vars
+        ));
+        assert!(ControlFlowEngine::evaluate_condition(
+            "left <= \"apple\"",
+            &string_vars
+        ));
+        assert!(ControlFlowEngine::evaluate_condition(
+            "left > \"aardvark\"",
+            &string_vars
+        ));
+        assert!(ControlFlowEngine::evaluate_condition(
+            "left >= \"apple\"",
+            &string_vars
+        ));
+        assert!(!ControlFlowEngine::evaluate_condition(
+            "left > \"banana\"",
+            &string_vars
+        ));
+    }
 }

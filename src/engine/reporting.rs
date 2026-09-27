@@ -774,4 +774,73 @@ mod tests {
         assert_eq!(stats.total_time_ms, 0);
         assert!(stats.times.is_empty());
     }
+
+    #[test]
+    fn test_real_time_endpoint_stats_compaction() {
+        let mut stats = RealTimeEndpointStats::default();
+        for i in 0..=MAX_TIMINGS + 5 {
+            stats.push_time(i);
+        }
+        assert_eq!(stats.times.len(), MAX_TIMINGS / 2 + 6);
+    }
+
+    #[test]
+    fn test_percentile_overshoot_fallback() {
+        let mut times = BTreeMap::new();
+        times.insert(42, 5);
+        let val = percentile(&times, 200.0);
+        assert_eq!(val, 42.0);
+    }
+
+    #[test]
+    fn test_cli_summary_reporter_trait_and_zero_duration() {
+        let timing = make_timing(vec![]);
+        let (name, mut agg) = make_aggregate("/api/zero", GooseMethod::Get, 0, 0, timing);
+        agg.raw_data.counter = 0;
+        let mut metrics = make_metrics(vec![(name, agg)]);
+        metrics.duration = 0;
+
+        let summary = CliSummary::from_metrics(&metrics);
+        assert_eq!(summary.endpoints[0].avg_response_time_ms, 0.0);
+        assert_eq!(summary.endpoints[0].requests_per_sec, 0.0);
+
+        let def = ReportingDefinition {
+            module: "cli-summary".to_string(),
+            filename: None,
+            ..Default::default()
+        };
+        assert_eq!(summary.module_name(), "cli-summary");
+        assert!(summary.report(&def, &metrics).is_ok());
+    }
+
+    #[test]
+    fn test_junit_reporter_full_branches() {
+        let timing = make_timing(vec![]);
+        let (name, mut agg) = make_aggregate("/api/fail", GooseMethod::Post, 0, 3, timing);
+        agg.raw_data.counter = 0;
+        let metrics = make_metrics(vec![(name, agg)]);
+
+        let reporter = JUnitReporter;
+        assert_eq!(reporter.module_name(), "junit-xml");
+
+        // Non-matching module should early exit with Ok
+        let ignore_def = ReportingDefinition {
+            module: "other".to_string(),
+            filename: None,
+            ..Default::default()
+        };
+        assert!(reporter.report(&ignore_def, &metrics).is_ok());
+
+        // Matching module with failures and zero counter
+        let temp_file = tempfile::NamedTempFile::new().unwrap();
+        let junit_def = ReportingDefinition {
+            module: "junit-xml".to_string(),
+            filename: Some(temp_file.path().to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        assert!(reporter.report(&junit_def, &metrics).is_ok());
+        let xml = std::fs::read_to_string(temp_file.path()).unwrap();
+        assert!(xml.contains("<failure message=\"Request failed: POST /api/fail\""));
+        assert!(xml.contains("time=\"0.000\""));
+    }
 }

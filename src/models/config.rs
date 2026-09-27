@@ -268,7 +268,7 @@ fn default_subject() -> String {
     "body".to_string()
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct ReportingDefinition {
     pub module: String,
@@ -438,5 +438,41 @@ headers:
         let headers = scenario.headers.unwrap();
         assert_eq!(headers.get("Authorization").unwrap(), "Bearer token123");
         assert_eq!(headers.get("X-Custom").unwrap(), "value");
+    }
+
+    #[test]
+    fn test_sla_action_serde_variants() {
+        let act_continue: SlaAction = serde_yaml::from_str("continue").unwrap();
+        assert!(matches!(act_continue, SlaAction::Continue));
+        assert_eq!(
+            serde_yaml::to_string(&act_continue).unwrap().trim(),
+            "continue"
+        );
+
+        let act_exec: SlaAction = serde_yaml::from_str("exec:reboot").unwrap();
+        assert_eq!(act_exec, SlaAction::Exec("reboot".to_string()));
+        assert_eq!(
+            serde_yaml::to_string(&act_exec).unwrap().trim(),
+            "exec:reboot"
+        );
+
+        let act_other: SlaAction = serde_yaml::from_str("restart-service").unwrap();
+        assert_eq!(act_other, SlaAction::Exec("restart-service".to_string()));
+
+        let act_stop = SlaAction::Stop;
+        assert_eq!(serde_yaml::to_string(&act_stop).unwrap().trim(), "stop");
+
+        let act_warn = SlaAction::Warn;
+        assert_eq!(serde_yaml::to_string(&act_warn).unwrap().trim(), "warn");
+    }
+
+    #[test]
+    fn test_assertion_definition_default_subject() {
+        let yaml = "contains:\n  - success";
+        let assertion: AssertionDefinition = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(assertion.subject, "body");
+        assert_eq!(assertion.contains, vec!["success"]);
+        assert!(!assertion.regexp);
+        assert!(!assertion.not);
     }
 }

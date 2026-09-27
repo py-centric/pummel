@@ -353,4 +353,150 @@ mod tests {
         let results = SlaEngine::evaluate(&[], &stats);
         assert!(results.is_empty());
     }
+
+    #[test]
+    fn test_percentile_from_metrics_and_goose_metrics_evaluation() {
+        use std::collections::BTreeMap;
+        let mut stats = mock_stats();
+        stats.duration = 2000; // 2 seconds
+
+        let mut times = BTreeMap::new();
+        times.insert(100, 10);
+        let timing = goose::metrics::GooseRequestMetricTimingData {
+            counter: 10,
+            total_time: 1000,
+            minimum_time: 100,
+            maximum_time: 100,
+            times,
+        };
+        let req_metric = goose::metrics::GooseRequestMetricAggregate {
+            path: "/api/items".to_string(),
+            method: goose::prelude::GooseMethod::Get,
+            raw_data: timing,
+            coordinated_omission_data: None,
+            status_code_counts: std::collections::HashMap::new(),
+            success_count: 9,
+            fail_count: 1,
+            load_test_hash: 0,
+        };
+
+        stats.requests.insert("/api/items".to_string(), req_metric);
+
+        let criteria = vec![
+            SlaCriterion {
+                metric: SlaMetric::P90ResponseTime,
+                threshold: 200.0,
+                subject: Some("/api/items".to_string()),
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::P95ResponseTime,
+                threshold: 200.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::P99ResponseTime,
+                threshold: 200.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::Throughput,
+                threshold: 10.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+        ];
+
+        let results = SlaEngine::evaluate(&criteria, &stats);
+        assert_eq!(results.len(), 4);
+        assert!(results[0].passed);
+        assert_eq!(results[0].actual, 100.0);
+        assert!(results[1].passed);
+        assert_eq!(results[1].actual, 100.0);
+        assert!(results[2].passed);
+        assert_eq!(results[2].actual, 100.0);
+        assert!(results[3].passed);
+        assert_eq!(results[3].actual, 5.0); // 10 reqs / 2s = 5 RPS
+    }
+
+    #[test]
+    fn test_evaluate_realtime_metrics_all_branches() {
+        use crate::engine::reporting::{RealTimeEndpointStats, RealTimeMetrics};
+
+        let mut rt = RealTimeMetrics::default();
+        let ep = RealTimeEndpointStats {
+            count: 20,
+            failures: 2,
+            total_time_ms: 2000,
+            times: vec![50, 100, 150, 200, 250],
+        };
+
+        rt.endpoints.insert("/api/test".to_string(), ep);
+
+        let criteria = vec![
+            SlaCriterion {
+                metric: SlaMetric::FailRate,
+                threshold: 0.2,
+                subject: Some("/api/test".to_string()),
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::AvgResponseTime,
+                threshold: 500.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::P90ResponseTime,
+                threshold: 300.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::P95ResponseTime,
+                threshold: 300.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::P99ResponseTime,
+                threshold: 300.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+            SlaCriterion {
+                metric: SlaMetric::Throughput,
+                threshold: 100.0,
+                subject: None,
+                duration: None,
+                action: SlaAction::Warn,
+            },
+        ];
+
+        let results = SlaEngine::evaluate_realtime(&criteria, &rt);
+        assert_eq!(results.len(), 6);
+        assert!(results[0].passed); // FailRate 2/20 = 0.1 <= 0.2
+        assert!(results[1].passed); // AvgResponseTime = 100 <= 500
+        assert!(results[2].passed); // P90 <= 300
+        assert!(results[3].passed); // P95 <= 300
+        assert!(results[4].passed); // P99 <= 300
+        assert!(results[5].passed); // Throughput > 0.1
+
+        // Empty endpoints realtime test
+        let empty_rt = RealTimeMetrics::default();
+        let empty_results = SlaEngine::evaluate_realtime(&criteria, &empty_rt);
+        assert_eq!(empty_results.len(), 6);
+        assert_eq!(empty_results[0].actual, 0.0);
+    }
 }
