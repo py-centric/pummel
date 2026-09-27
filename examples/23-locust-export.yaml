@@ -1,0 +1,50 @@
+# Locust Load Test Export Example
+#
+# This example demonstrates how to author a declarative load testing scenario in Pummel
+# and export it directly to an idiomatic Python Locust script:
+#
+# CLI usage:
+#   pummel examples/23-locust-export.yaml --export locust -e target/locustfile.py
+#   locust -f target/locustfile.py --headless
+
+execution:
+  - concurrency: 50
+    ramp-up: 15s
+    hold-for: 3m
+    scenario: browsing
+
+scenarios:
+  browsing:
+    weight: 3
+    think-time: 400ms
+    headers:
+      Authorization: Bearer ${env.AUTH_TOKEN}
+      Content-Type: application/json
+    requests:
+      - url: https://api.example.com/v1/catalog
+        method: GET
+        label: browse-catalog
+        assert:
+          - contains: ["200"]
+            subject: http-code
+          - contains: ["catalog"]
+            subject: body
+
+      - url: https://api.example.com/v1/search
+        method: POST
+        label: search-items
+        body: '{"query": "laptop", "limit": 10}'
+        timeout: 5s
+        assert:
+          - contains: ["200"]
+            subject: http-code
+        extract-jsonpath:
+          item_id: $.items.0.id
+
+      - url: https://api.example.com/v1/items/${item_id}
+        method: GET
+        label: get-item-detail
+        assert:
+          - contains: ["error"]
+            subject: body
+            not: true

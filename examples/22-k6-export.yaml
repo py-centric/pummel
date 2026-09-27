@@ -1,0 +1,63 @@
+# k6 Scenario Transpiler Example
+#
+# This example demonstrates how to author a declarative load testing scenario in Pummel
+# and export it directly to an idiomatic k6 ES6 script:
+#
+# CLI usage:
+#   pummel examples/22-k6-export.yaml --export k6 -e target/k6_test.js
+#   k6 run target/k6_test.js
+
+execution:
+  - concurrency: 50
+    ramp-up: 10s
+    hold-for: 2m
+    scenario: checkout-flow
+
+scenarios:
+  checkout-flow:
+    think-time: 500ms
+    headers:
+      Authorization: Bearer ${env.API_TOKEN}
+      Content-Type: application/json
+    requests:
+      - url: https://api.example.com/v1/health
+        method: GET
+        label: health-check
+        assert:
+          - contains: ["200"]
+            subject: http-code
+
+      - url: https://api.example.com/v1/cart
+        method: POST
+        label: create-cart
+        body: '{"item_id": "SKU-99", "quantity": 2}'
+        timeout: 10s
+        assert:
+          - contains: ["201"]
+            subject: http-code
+          - contains: ["cart_id"]
+            subject: body
+        extract-jsonpath:
+          cart_id: $.cart_id
+
+      - url: https://api.example.com/v1/cart/${cart_id}/checkout
+        method: POST
+        label: checkout
+        body: '{"payment_method": "card"}'
+        assert:
+          - contains: ["200"]
+            subject: http-code
+          - contains: ["error"]
+            subject: body
+            not: true
+
+reporting:
+  - module: junit-xml
+    failed-threshold: 0.01
+    sla:
+      - metric: avg-response-time
+        threshold: 250.0
+      - metric: p95-response-time
+        threshold: 600.0
+      - metric: fail-rate
+        threshold: 0.01
