@@ -1,0 +1,19 @@
+# Pummel Platform Gates G1-G4 Stress & Latency Scenario
+# Zero Unicode Em-Dash Rule strictly enforced.
+execution:
+- concurrency: 50
+  ramp-up: 2s
+  hold-for: 10s
+  scenario: platform_gates
+scenarios:
+  platform_gates:
+    requests:
+    - url: http://127.0.0.1:8000/api/v1/healthz
+      assert:
+      - contains: ["status"]
+    - url: http://127.0.0.1:8000/api/v1/chat/health
+      assert:
+      - contains: ["status"]
+    - url: http://127.0.0.1:8000/api/v1/payments/health
+      assert:
+      - contains: ["status"]
