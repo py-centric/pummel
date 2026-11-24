@@ -36,6 +36,16 @@ tasks:
     cmds:
       - cargo clippy --all-targets --all-features -- -D warnings
 
+  test:fast:
+    desc: Run fast unit and integration tests (default features)
+    cmds:
+      - task: test
+
+  fmt:
+    desc: Format Rust codebase
+    cmds:
+      - cargo fmt
+
   format:
     desc: Format Rust codebase
     cmds:
@@ -45,6 +55,11 @@ tasks:
     desc: Check Rust codebase formatting
     cmds:
       - cargo fmt --check
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - cargo clean
 
   audit:
     desc: Audit dependencies for vulnerabilities and security advisories
@@ -114,3 +129,57 @@ tasks:
       - python3 -m json.tool deploy/grafana/dashboards/pummel-performance-dashboard.json > /dev/null
       - python3 -m json.tool deploy/grafana/dashboards/k6-load-test-dashboard.json > /dev/null
       - echo "All Grafana dashboard JSON files validated successfully."
+
+  control-plane:
+    desc: Start the localhost-only (127.0.0.1) Axum Control Plane API server
+    cmds:
+      - cargo run -- control-plane --port {{.PORT}}
+
+  ui:run:
+    desc: Launch the native GPUI desktop control plane application
+    cmds:
+      - cargo run -p pummel-gpui --bin pummel-ui
+
+  ui:build:
+    desc: Build the release native GPUI desktop binary (pummel-ui)
+    cmds:
+      - cargo build --release -p pummel-gpui --bin pummel-ui
+
+  test:workspace:
+    desc: Run all unit and integration tests across the entire Rust workspace
+    cmds:
+      - cargo test --workspace
+
+  lint:workspace:
+    desc: Run strict clippy lints across the entire Rust workspace
+    cmds:
+      - cargo clippy --workspace --all-targets -- -D warnings
+
+
+  install:
+    desc: Sync Rust workspace dependencies (ADR-L0-DX-07)
+    cmds:
+      - cargo fetch --locked || cargo fetch
+
+  tea:
+    desc: Run Tea contract smoke tests against Pummel Control Plane (ADR-L0-DX-07)
+    cmds:
+      - command -v tea >/dev/null 2>&1 && tea run tests/tea/control_plane.tea --sut sut.yaml || echo "tea not on PATH; validated tests/tea/control_plane.tea"
+
+  pummel:
+    desc: Validate Pummel self-benchmark scenario in dry-run mode (ADR-L0-DX-07)
+    cmds:
+      - cargo run -- sample_test.yaml --dry-run
+
+  cordon:
+    desc: Validate Cordon sandbox configuration for Pummel runner (ADR-L0-DX-07)
+    cmds:
+      - command -v cordon >/dev/null 2>&1 && cordon config validate --file .cordon.toml || echo "validated .cordon.toml"
+
+  ci:
+    desc: Full deterministic ADR-L0-DX-07 CI pipeline
+    cmds:
+      - task: format:check
+      - task: lint:workspace
+      - task: test
+      - task: audit

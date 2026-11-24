@@ -67,6 +67,7 @@ mod tests {
             reporting: Vec::new(),
             services: Vec::new(),
             api: None,
+            cordon: None,
         }
     }
 

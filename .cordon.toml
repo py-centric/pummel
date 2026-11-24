@@ -1,0 +1,13 @@
+# Fail-closed Cordon sandbox profile for Pummel runs (ADR-L0-DX-07)
+[environment]
+name = "pummel-runner"
+base_profile = "package-build"
+description = "Confined Pummel load generator targeting explicitly allowlisted local/staging hosts"
+workdir = "."
+
+[network]
+allowed_domains = ["localhost", "127.0.0.1", "int.pycentric.local", "tst.pycentric.local"]
+denied_domains = ["169.254.169.254", "metadata.google.internal"]
+
+[runtime]
+cmd = ["cargo", "test", "--all-targets"]

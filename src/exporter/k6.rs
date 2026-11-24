@@ -512,9 +512,11 @@ mod tests {
                     duration: None,
                     action: SlaAction::Stop,
                 }],
+                ..ReportingDefinition::default()
             }],
             services: vec![],
             api: None,
+            cordon: None,
         };
 
         let js = export_k6(&config);
@@ -588,6 +590,7 @@ mod tests {
             }],
             services: vec![],
             api: None,
+            cordon: None,
         };
 
         let js = export_k6(&config);

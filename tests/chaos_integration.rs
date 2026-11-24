@@ -109,9 +109,11 @@ async fn test_chaos_hooks_and_api() {
                 duration: None,
                 action: SlaAction::Exec(format!("echo 'sla_breached' > {}", sla_file)),
             }],
+            ..pummel::models::config::ReportingDefinition::default()
         }],
         services,
         api,
+        cordon: None,
     };
 
     // Run the attack!
@@ -188,6 +190,7 @@ async fn test_chaos_api_control() {
         reporting: vec![],
         services: vec![],
         api,
+        cordon: None,
     };
 
     // Run the attack in a background task

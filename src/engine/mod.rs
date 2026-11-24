@@ -1,5 +1,11 @@
+pub mod anomaly;
+pub mod cassandra_reporter;
+pub mod ci_pipelines;
+pub mod compliance;
 pub(crate) mod control_flow;
-pub(crate) mod data_sources;
+pub mod cordon_runner;
+pub mod data_sources;
+pub mod distributed;
 pub(crate) mod env;
 pub(crate) mod extraction;
 pub mod goose;
@@ -10,12 +16,17 @@ pub(crate) mod macros;
 #[cfg(feature = "grpc")]
 pub mod mock;
 pub(crate) mod pacing;
+pub mod projects;
 #[cfg(feature = "grpc")]
 pub(crate) mod proto;
 pub mod reporting;
+pub mod scheduler;
 pub mod sla;
+pub mod sse_graphql;
+pub mod storage;
 pub(crate) mod utils;
 pub mod validation;
+pub mod webhooks;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PummelError {

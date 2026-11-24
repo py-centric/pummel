@@ -9,6 +9,8 @@ pub enum Protocol {
     #[serde(alias = "ws")]
     Ws,
     Grpc,
+    Sse,
+    Graphql,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -44,6 +46,8 @@ pub struct Configuration {
     pub services: Vec<ServiceDefinition>,
     #[serde(default)]
     pub api: Option<ApiConfig>,
+    #[serde(default)]
+    pub cordon: Option<CordonSandboxConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -282,6 +286,12 @@ pub struct ReportingDefinition {
     pub failed_threshold: Option<f32>,
     #[serde(default)]
     pub sla: Vec<SlaCriterion>,
+    #[serde(default)]
+    pub keyspace: Option<String>,
+    #[serde(default)]
+    pub table: Option<String>,
+    #[serde(default)]
+    pub ttl_secs: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -303,6 +313,19 @@ pub struct ApiConfig {
     pub enabled: bool,
     #[serde(default = "default_api_port")]
     pub port: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
+pub struct CordonSandboxConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub profile: Option<String>,
+    #[serde(default)]
+    pub config_file: Option<String>,
+    #[serde(default)]
+    pub extra_allowed_domains: Vec<String>,
 }
 
 fn default_api_port() -> u16 {

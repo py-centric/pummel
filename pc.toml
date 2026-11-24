@@ -1,0 +1,31 @@
+# PyCentric Workspace Configuration (ADR-L0-CLI-01, ADR-L0-DX-07)
+schema_version = "1.0.0"
+
+[project]
+name = "pummel"
+version = "0.1.0"
+layer = "layer2_domain_ai_fintech"
+description = "High-performance protocol benchmarking and load testing engine"
+
+[toolchain]
+rust = ">=1.85"
+task = ">=3.38.0"
+
+[sandbox]
+profile = "tea-pummel-runner"
+config = ".cordon.toml"
+
+[tasks]
+install = "install"
+fmt = "fmt"
+lint = "lint"
+"test:fast" = "test:fast"
+test = "test"
+audit = "audit"
+tea = "tea"
+pummel = "pummel"
+cordon = "cordon"
+build = "build"
+docs = "docs:build"
+clean = "clean"
+ci = "ci"

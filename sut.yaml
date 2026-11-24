@@ -1,0 +1,8 @@
+# System Under Test (SUT) for Pummel Control Plane (ADR-L0-DX-07)
+name: "Pummel Control Plane"
+type: HTTP
+base_url: "http://127.0.0.1:8000"
+security_allowlist:
+  allowed_paths:
+    - "/health**"
+    - "/api/**"
