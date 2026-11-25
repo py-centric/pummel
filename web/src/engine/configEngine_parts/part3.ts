@@ -5,6 +5,8 @@ import type {
   ScenarioConfig,
   ValidationDiagnostic,
 } from '../../types/pummel';
+import { ALLOWED_TOP_LEVEL_KEYS, MAX_FILE_SIZE_BYTES, extractEnvReferences, isSensitiveEnvVar, normalizeInheritance, validateSafePath } from './part1';
+
 
 export function parseRawConfigCheck(
   rawText: string,

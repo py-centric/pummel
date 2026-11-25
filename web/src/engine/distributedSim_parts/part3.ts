@@ -8,6 +8,9 @@ import type {
   SlaEvaluationResult,
   WorkerNode,
 } from '../../types/pummel';
+import { MAX_TIMINGS, appendBoundedTimings, calculatePercentile, distributeVUs, evaluateSlaCriteria } from './part1';
+import { deterministicNoise, stopDistributedRun } from './part2';
+
 
 export function stepDistributedRun(
   state: DistributedRunState,

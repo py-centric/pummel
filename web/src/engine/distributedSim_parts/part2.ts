@@ -8,6 +8,8 @@ import type {
   SlaEvaluationResult,
   WorkerNode,
 } from '../../types/pummel';
+import { createDefaultWorkers, distributeVUs } from './part1';
+
 
 export function createInitialClusterState(
   config: PummelConfig,

@@ -5,6 +5,9 @@ import type {
   ScenarioConfig,
   ValidationDiagnostic,
 } from '../../types/pummel';
+import { normalizeInheritance, xmlEscape } from './part1';
+import { serializeConfig } from './part2';
+
 
 export function exportPummelConfig(
   config: PummelConfig,

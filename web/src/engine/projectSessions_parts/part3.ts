@@ -8,6 +8,8 @@ import {
   buildClusterWorkers,
   getTestClusterById,
 } from '../testClusters';
+import { MULTIPROJECT_STORAGE_KEY, MultiprojectSummary, MultiprojectWorkspaceState, SessionViewFilter, WorkspaceSession, createSeedMultiprojectWorkspace } from './part1';
+
 
 export function deleteWorkspaceSession(
   state: MultiprojectWorkspaceState,

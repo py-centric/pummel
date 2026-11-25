@@ -8,6 +8,8 @@ import {
   buildClusterWorkers,
   getTestClusterById,
 } from '../testClusters';
+import { MultiprojectWorkspaceState, WorkspaceSession, cloneConfig } from './part1';
+
 
 export function deleteWorkspaceProject(
   state: MultiprojectWorkspaceState,
