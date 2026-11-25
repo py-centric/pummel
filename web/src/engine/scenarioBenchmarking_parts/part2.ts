@@ -154,7 +154,7 @@ export function buildComparisonMatrix(
   ];
 }
 
-function getDefaultStorage(): StorageLike | null {
+export function getDefaultStorage(): StorageLike | null {
   try {
     if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
   } catch {

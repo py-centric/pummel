@@ -41,12 +41,12 @@ export const DEFAULT_GIT_HOOK_OPTIONS: GitHookOptions = {
   enableProjectLint: false,
 };
 
-function sanitizeGlobRegex(glob: string): string {
+export function sanitizeGlobRegex(glob: string): string {
   const trimmed = glob.trim();
   return trimmed || '\\.(pummel\\.)?(yaml|yml|toml|json)$';
 }
 
-function buildPrekToml(config: PummelConfig, opts: GitHookOptions): { content: string; count: number } {
+export function buildPrekToml(config: PummelConfig, opts: GitHookOptions): { content: string; count: number } {
   const filePattern = sanitizeGlobRegex(opts.configGlob);
   const stageName = opts.stage;
   let count = 4; // built-in hygiene hooks
@@ -146,7 +146,7 @@ function buildPrekToml(config: PummelConfig, opts: GitHookOptions): { content: s
   return { content: lines.join('\n') + '\n', count };
 }
 
-function buildPythonPreCommitYaml(
+export function buildPythonPreCommitYaml(
   config: PummelConfig,
   opts: GitHookOptions
 ): { content: string; count: number } {

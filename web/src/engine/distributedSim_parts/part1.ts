@@ -81,7 +81,7 @@ export function distributeVUs(
   }));
 }
 
-function compareSla(value: number, comparator: SlaCriterion['comparator'], threshold: number): boolean {
+export function compareSla(value: number, comparator: SlaCriterion['comparator'], threshold: number): boolean {
   switch (comparator) {
     case '>':
       return value > threshold;

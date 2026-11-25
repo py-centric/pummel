@@ -1,7 +1,7 @@
 import type { PummelConfig } from '../../types/pummel';
 import type { StorageLike } from '../scheduledTests';
 
-function buildStandardGitHookScript(
+export function buildStandardGitHookScript(
   config: PummelConfig,
   opts: GitHookOptions
 ): { content: string; count: number } {
@@ -142,7 +142,7 @@ export function buildGitHookArtifact(
   };
 }
 
-function getDefaultStorage(): StorageLike | null {
+export function getDefaultStorage(): StorageLike | null {
   try {
     if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
   } catch {

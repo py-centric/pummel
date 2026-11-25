@@ -78,11 +78,11 @@ export function deriveProjectShortCode(name: string): string {
     .toUpperCase();
 }
 
-function cloneConfig<T>(value: T): T {
+export function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function buildSeededSession(params: {
+export function buildSeededSession(params: {
   id: string;
   projectId: string;
   title: string;

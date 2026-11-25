@@ -10,7 +10,7 @@ export const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 // 100 MB (NFR-SEC-02)
 
-const ALLOWED_TOP_LEVEL_KEYS = new Set([
+export const ALLOWED_TOP_LEVEL_KEYS = new Set([
   'name',
   'execution',
   'scenarios',
@@ -22,7 +22,7 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   'modules',
 ]);
 
-const SENSITIVE_ENV_PATTERNS: RegExp[] = [
+export const SENSITIVE_ENV_PATTERNS: RegExp[] = [
   /^AWS_/i,
   /^SECRET/i,
   /^KEY$/i,

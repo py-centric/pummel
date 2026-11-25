@@ -126,7 +126,7 @@ export function filterWorkspaceSessions(
     });
 }
 
-function getDefaultStorage(): StorageLike | null {
+export function getDefaultStorage(): StorageLike | null {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       return window.localStorage;
@@ -137,7 +137,7 @@ function getDefaultStorage(): StorageLike | null {
   return null;
 }
 
-function compactRunStateForStorage(runState: DistributedRunState): DistributedRunState {
+export function compactRunStateForStorage(runState: DistributedRunState): DistributedRunState {
   return {
     ...runState,
     history: runState.history.slice(-60),
