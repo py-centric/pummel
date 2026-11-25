@@ -1,0 +1,10 @@
+# Tea Domain Contract Suite for pummel (pummel-server)
+name: pummel-server-domain-contract
+description: Verifies live health and baseline API contract for pummel on loopback port 8090
+steps:
+  - name: health-probe
+    http:
+      method: GET
+      url: "http://127.0.0.1:8090/health"
+    expect:
+      status: 200
