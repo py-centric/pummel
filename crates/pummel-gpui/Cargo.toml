@@ -1,0 +1,21 @@
+[package]
+name = "pummel-gpui"
+version = "0.1.0"
+edition = "2024"
+description = "Native GPU-accelerated GPUI desktop control plane for Pummel"
+
+[[bin]]
+name = "pummel-ui"
+path = "src/main.rs"
+
+[dependencies]
+pummel = { path = "../.." }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "a3ce8d5e88e35697b2ba1cf9cb3c6816089b8281", package = "gpui" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "a3ce8d5e88e35697b2ba1cf9cb3c6816089b8281", package = "gpui_platform", features = ["font-kit", "wayland", "x11"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+tracing = "0.1"
