@@ -1,54 +1,50 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ArrowUpRight,
-  BarChart3,
-  Camera,
-  Check,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { ArrowUpRight, BarChart3, Camera, Plus, Trash2 } from 'lucide-react';
 import type { PummelConfig } from '../types/pummel';
 import {
   buildBenchmarkScenarioFromConfig,
   buildComparisonMatrix,
   loadBenchmarkScenarios,
   saveBenchmarkScenarios,
-  type BenchmarkExecutorType,
   type BenchmarkScenario,
 } from '../engine/scenarioBenchmarking';
+import {
+  BenchmarkAddForm,
+  type BenchmarkFormValues,
+} from './benchmark/BenchmarkAddForm';
 
 interface ScenarioBenchmarkPanelProps {
   activeConfig: PummelConfig;
   onLoadScenarioIntoEditor: (scenario: BenchmarkScenario) => void;
 }
 
+const INITIAL_FORM_VALUES: BenchmarkFormValues = {
+  name: 'Soak',
+  profileTag: 'soak',
+  concurrencyVUs: 500,
+  rampUpSec: 60,
+  holdForSec: 600,
+  targetRpsCap: '1200',
+  executor: 'http',
+  thinkTimeMs: 180,
+  p95SlaMs: 210,
+  maxErrorRatePct: 1.0,
+  workerShards: 4,
+  notes: 'Long-duration memory leak and connection-pool stability check.',
+};
+
 export function ScenarioBenchmarkPanel({
   activeConfig,
   onLoadScenarioIntoEditor,
 }: ScenarioBenchmarkPanelProps) {
-  const [scenarios, setScenarios] = useState<BenchmarkScenario[]>(() =>
-    loadBenchmarkScenarios()
-  );
+  const [scenarios, setScenarios] = useState<BenchmarkScenario[]>(() => loadBenchmarkScenarios());
   const [selectedIds, setSelectedIds] = useState<string[]>(() =>
     loadBenchmarkScenarios()
       .slice(0, 3)
       .map((s) => s.id)
   );
   const [showAddForm, setShowAddForm] = useState(false);
-
-  // New scenario form state
-  const [name, setName] = useState('Soak');
-  const [profileTag, setProfileTag] = useState<BenchmarkScenario['profileTag']>('soak');
-  const [concurrencyVUs, setConcurrencyVUs] = useState(500);
-  const [rampUpSec, setRampUpSec] = useState(60);
-  const [holdForSec, setHoldForSec] = useState(600);
-  const [targetRpsCap, setTargetRpsCap] = useState<string>('1200');
-  const [executor, setExecutor] = useState<BenchmarkExecutorType>('http');
-  const [thinkTimeMs, setThinkTimeMs] = useState(180);
-  const [p95SlaMs, setP95SlaMs] = useState(210);
-  const [maxErrorRatePct, setMaxErrorRatePct] = useState(1.0);
-  const [workerShards, setWorkerShards] = useState(4);
-  const [notes, setNotes] = useState('Long-duration memory leak and connection-pool stability check.');
+  const [formValues, setFormValues] = useState<BenchmarkFormValues>(INITIAL_FORM_VALUES);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,30 +77,39 @@ export function ScenarioBenchmarkPanel({
     setSelectedIds((prev) => [captured.id, ...prev.slice(0, 3)]);
   };
 
+  const handleFormFieldChange = <K extends keyof BenchmarkFormValues>(
+    field: K,
+    value: BenchmarkFormValues[K]
+  ) => {
+    setFormValues((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleCreateScenario = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = name.trim();
+    const trimmedName = formValues.name.trim();
     if (!trimmedName) {
       setFormError('Scenario name is required (e.g. Baseline, Stress, Spike, Soak).');
       return;
     }
     const rpsCapNum =
-      targetRpsCap.trim() === '' ? null : Math.max(10, Number(targetRpsCap) || 100);
+      formValues.targetRpsCap.trim() === ''
+        ? null
+        : Math.max(10, Number(formValues.targetRpsCap) || 100);
 
     const created: BenchmarkScenario = {
       id: `bench-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: trimmedName,
-      profileTag,
-      concurrencyVUs: Math.max(1, concurrencyVUs),
-      rampUpSec: Math.max(0, rampUpSec),
-      holdForSec: Math.max(1, holdForSec),
+      profileTag: formValues.profileTag,
+      concurrencyVUs: Math.max(1, formValues.concurrencyVUs),
+      rampUpSec: Math.max(0, formValues.rampUpSec),
+      holdForSec: Math.max(1, formValues.holdForSec),
       targetRpsCap: rpsCapNum,
-      executor,
-      thinkTimeMs: Math.max(0, thinkTimeMs),
-      p95SlaMs: Math.max(10, p95SlaMs),
-      maxErrorRatePct: Math.max(0.01, maxErrorRatePct),
-      workerShards: Math.max(1, workerShards),
-      notes: notes.trim() || `${trimmedName} load scenario configuration.`,
+      executor: formValues.executor,
+      thinkTimeMs: Math.max(0, formValues.thinkTimeMs),
+      p95SlaMs: Math.max(10, formValues.p95SlaMs),
+      maxErrorRatePct: Math.max(0.01, formValues.maxErrorRatePct),
+      workerShards: Math.max(1, formValues.workerShards),
+      notes: formValues.notes.trim() || `${trimmedName} load scenario configuration.`,
       createdAtIso: new Date().toISOString(),
     };
 
@@ -112,7 +117,7 @@ export function ScenarioBenchmarkPanel({
     setSelectedIds((prev) => [created.id, ...prev].slice(0, 4));
     setFormError(null);
     setShowAddForm(false);
-    setName('');
+    setFormValues((prev) => ({ ...prev, name: '' }));
   };
 
   const handleDeleteScenario = (id: string) => {
@@ -166,196 +171,12 @@ export function ScenarioBenchmarkPanel({
 
       {/* Add Scenario Form */}
       {showAddForm && (
-        <form
+        <BenchmarkAddForm
+          values={formValues}
+          formError={formError}
+          onChange={handleFormFieldChange}
           onSubmit={handleCreateScenario}
-          data-testid="benchmark-add-form"
-          className="border-b border-slate-200 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-950/60"
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Scenario Name
-              </span>
-              <input
-                type="text"
-                required
-                data-testid="benchmark-name-input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Soak, Canary, Flash Spike"
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Profile Tag
-              </span>
-              <select
-                value={profileTag}
-                onChange={(e) =>
-                  setProfileTag(e.target.value as BenchmarkScenario['profileTag'])
-                }
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              >
-                <option value="baseline">Baseline</option>
-                <option value="stress">Stress</option>
-                <option value="spike">Spike</option>
-                <option value="soak">Soak</option>
-                <option value="custom">Custom</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Concurrency (VUs)
-              </span>
-              <input
-                type="number"
-                min={1}
-                value={concurrencyVUs}
-                onChange={(e) => setConcurrencyVUs(Math.max(1, Number(e.target.value) || 1))}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Protocol Executor
-              </span>
-              <select
-                value={executor}
-                onChange={(e) => setExecutor(e.target.value as BenchmarkExecutorType)}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 font-mono text-xs uppercase text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              >
-                <option value="http">HTTP/2</option>
-                <option value="grpc">gRPC</option>
-                <option value="websocket">WebSocket</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Ramp-Up (sec)
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={rampUpSec}
-                onChange={(e) => setRampUpSec(Math.max(0, Number(e.target.value) || 0))}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Hold For (sec)
-              </span>
-              <input
-                type="number"
-                min={1}
-                value={holdForSec}
-                onChange={(e) => setHoldForSec(Math.max(1, Number(e.target.value) || 1))}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                RPS Cap (empty = uncapped)
-              </span>
-              <input
-                type="number"
-                min={10}
-                value={targetRpsCap}
-                onChange={(e) => setTargetRpsCap(e.target.value)}
-                placeholder="Uncapped"
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                p95 SLA (ms) / Error %
-              </span>
-              <div className="mt-1 flex items-center gap-1.5">
-                <input
-                  type="number"
-                  aria-label="p95 SLA in ms"
-                  min={10}
-                  value={p95SlaMs}
-                  onChange={(e) => setP95SlaMs(Math.max(10, Number(e.target.value) || 100))}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <input
-                  type="number"
-                  aria-label="Max error rate percent"
-                  min={0.05}
-                  step={0.1}
-                  value={maxErrorRatePct}
-                  onChange={(e) =>
-                    setMaxErrorRatePct(Math.max(0.05, Number(e.target.value) || 1))
-                  }
-                  className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2.5 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </div>
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Think Time (ms)
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={thinkTimeMs}
-                onChange={(e) => setThinkTimeMs(Math.max(0, Number(e.target.value) || 0))}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Worker Shards
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={32}
-                value={workerShards}
-                onChange={(e) => setWorkerShards(Math.max(1, Number(e.target.value) || 1))}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-
-            <label className="block sm:col-span-2">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Description / Intent
-              </span>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-          </div>
-
-          {formError && (
-            <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">{formError}</p>
-          )}
-
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="submit"
-              data-testid="benchmark-submit-btn"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-4 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            >
-              <Check className="h-3.5 w-3.5" aria-hidden="true" />
-              Add Scenario to Matrix
-            </button>
-          </div>
-        </form>
+        />
       )}
 
       {/* Scenario Selector Strip */}
@@ -382,9 +203,7 @@ export function ScenarioBenchmarkPanel({
               >
                 {sc.name}
               </button>
-              <span className="font-mono text-[10px] opacity-75">
-                ({sc.concurrencyVUs} VU)
-              </span>
+              <span className="font-mono text-[10px] opacity-75">({sc.concurrencyVUs} VU)</span>
               <button
                 type="button"
                 aria-label={`Load ${sc.name} into active YAML editor`}

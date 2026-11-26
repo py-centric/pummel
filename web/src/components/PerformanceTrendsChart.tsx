@@ -1,20 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { Activity, Bell, BellOff, Play, Sparkles } from 'lucide-react';
 import type { SlaCriterion, TelemetryPoint } from '../types/pummel';
-import { buildTelemetryChartSummary, type ChartTelemetryDatum } from '../engine/telemetryChart';
+import { buildTelemetryChartSummary } from '../engine/telemetryChart';
 import {
   analyzeTelemetryAnomalies,
   DEFAULT_ANOMALY_CONFIG,
@@ -22,16 +9,17 @@ import {
 } from '../engine/anomalyDetector';
 import { useTheme } from '../context/ThemeContext';
 import type { BrowserNotificationPerm } from '../context/PummelContext';
+import {
+  getTelemetryChartColors,
+  type MergedChartDatum,
+} from './trends/TelemetryTooltip';
+import {
+  CombinedTelemetryChart,
+  LatencyLineChart,
+  ThroughputAreaChart,
+} from './trends/TelemetryChartLayers';
 
 type ChartViewMode = 'split' | 'throughput' | 'latency' | 'combined';
-
-type MergedChartDatum = ChartTelemetryDatum & {
-  p95MovingAvg: number | null;
-  rpsMovingAvg: number | null;
-  p95AnomalyValue: number | null;
-  rpsAnomalyValue: number | null;
-  anomalyReason?: string;
-};
 
 interface PerformanceTrendsChartProps {
   history: readonly TelemetryPoint[];
@@ -42,88 +30,6 @@ interface PerformanceTrendsChartProps {
   onUpdateAnomalyConfig?: (patch: Partial<AnomalyDetectorConfig>) => void;
   notificationPermission?: BrowserNotificationPerm;
   onRequestBrowserNotifications?: () => void;
-}
-
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: Array<{ payload: MergedChartDatum }>;
-  label?: string;
-}
-
-function TelemetryTooltip({ active, payload, label }: CustomTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null;
-  const datum = payload[0].payload;
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="font-mono font-semibold text-slate-900 dark:text-slate-100">{label}</div>
-      <dl className="mt-1.5 space-y-1 font-mono tabular-nums">
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500 dark:text-slate-400">Throughput</dt>
-          <dd className="font-semibold text-sky-700 dark:text-sky-400">
-            {datum.rps.toLocaleString()} req/s
-          </dd>
-        </div>
-        {datum.rpsMovingAvg !== null && (
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-slate-500 dark:text-slate-400">Throughput MA</dt>
-            <dd className="text-slate-700 dark:text-slate-300">
-              {datum.rpsMovingAvg.toLocaleString()} req/s
-            </dd>
-          </div>
-        )}
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500 dark:text-slate-400">Active VUs</dt>
-          <dd className="font-semibold text-emerald-700 dark:text-emerald-400">
-            {datum.activeVUs.toLocaleString()}
-          </dd>
-        </div>
-        <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500 dark:text-slate-400">p99 Latency</dt>
-          <dd className="font-semibold text-rose-700 dark:text-rose-400">
-            {datum.p99Ms.toFixed(1)} ms
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500 dark:text-slate-400">p95 Latency</dt>
-          <dd className="font-semibold text-orange-700 dark:text-orange-400">
-            {datum.p95Ms.toFixed(1)} ms
-          </dd>
-        </div>
-        {datum.p95MovingAvg !== null && (
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-slate-500 dark:text-slate-400">p95 Moving Avg</dt>
-            <dd className="text-slate-700 dark:text-slate-300">
-              {datum.p95MovingAvg.toFixed(1)} ms
-            </dd>
-          </div>
-        )}
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500 dark:text-slate-400">Avg Latency</dt>
-          <dd className="font-semibold text-indigo-700 dark:text-indigo-400">
-            {datum.avgMs.toFixed(1)} ms
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-slate-500 dark:text-slate-400">Fail Rate</dt>
-          <dd
-            className={
-              datum.failRatePct > 1
-                ? 'font-semibold text-red-700 dark:text-red-400'
-                : 'text-slate-800 dark:text-slate-200'
-            }
-          >
-            {datum.failRatePct.toFixed(2)}%
-          </dd>
-        </div>
-      </dl>
-      {datum.anomalyReason && (
-        <div className="mt-2 border-t border-red-200 pt-1.5 font-mono text-[11px] font-semibold text-red-700 dark:border-red-900/60 dark:text-red-400">
-          Outlier: {datum.anomalyReason}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function PerformanceTrendsChart({
@@ -165,380 +71,7 @@ export function PerformanceTrendsChart({
     [summary.points, anomalyAnalysis.points]
   );
 
-  const gridStroke = isDark ? '#1E293B' : '#E2E8F0';
-  const axisTickColor = isDark ? '#94A3B8' : '#64748B';
-  const axisLineStroke = isDark ? '#334155' : '#CBD5E1';
-  const rpsColor = isDark ? '#38BDF8' : '#0284C7';
-  const rpsAxisColor = isDark ? '#38BDF8' : '#0369A1';
-  const vuColor = isDark ? '#34D399' : '#059669';
-  const avgColor = isDark ? '#818CF8' : '#4F46E5';
-  const p95Color = isDark ? '#FB923C' : '#EA580C';
-  const p99Color = isDark ? '#FB7185' : '#E11D48';
-  const maColor = isDark ? '#94A3B8' : '#64748B';
-  const outlierColor = '#DC2626';
-  const slaLabelColor = isDark ? '#F87171' : '#B91C1C';
-
-  const renderThroughputAreaChart = (heightClass: string) => (
-    <div
-      className="min-w-0 rounded-lg border border-slate-200/80 bg-slate-50/40 p-3.5 dark:border-slate-800 dark:bg-slate-950/40"
-      data-testid="recharts-throughput-area"
-    >
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-            Request Throughput &amp; Active VUs (Area)
-          </h3>
-          <p className="font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-            Now {summary.latestRps.toLocaleString()} req/s · Peak {summary.peakRps.toLocaleString()} req/s
-          </p>
-        </div>
-        <div className="flex items-center gap-3 font-mono text-[11px] tabular-nums text-slate-600 dark:text-slate-300">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2.5 rounded-xs bg-sky-600 dark:bg-sky-400" aria-hidden="true" />
-            req/s
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2.5 rounded-xs bg-emerald-600 dark:bg-emerald-400" aria-hidden="true" />
-            VUs ({summary.latestActiveVUs.toLocaleString()})
-          </span>
-        </div>
-      </div>
-
-      <div className={`${heightClass} w-full`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={mergedPoints}
-            syncId="pummel-telemetry"
-            margin={{ top: 8, right: 8, left: 0, bottom: 2 }}
-          >
-            <defs>
-              <linearGradient id="pummelThroughputAreaFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={rpsColor} stopOpacity={isDark ? 0.36 : 0.24} />
-                <stop offset="95%" stopColor={rpsColor} stopOpacity={0.02} />
-              </linearGradient>
-              <linearGradient id="pummelVuAreaFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={vuColor} stopOpacity={isDark ? 0.24 : 0.16} />
-                <stop offset="95%" stopColor={vuColor} stopOpacity={0.01} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="timeLabel"
-              tick={{ fill: axisTickColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-              tickLine={false}
-              axisLine={{ stroke: axisLineStroke }}
-              minTickGap={24}
-            />
-            <YAxis
-              yAxisId="rps"
-              orientation="left"
-              tick={{ fill: rpsAxisColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-              tickLine={false}
-              axisLine={false}
-              width={48}
-            />
-            <YAxis
-              yAxisId="vus"
-              orientation="right"
-              tick={{ fill: vuColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-              tickLine={false}
-              axisLine={false}
-              width={44}
-            />
-            <Tooltip content={<TelemetryTooltip />} />
-            <Area
-              yAxisId="rps"
-              type="monotone"
-              dataKey="rps"
-              name="Throughput (req/s)"
-              stroke={rpsColor}
-              strokeWidth={2}
-              fill="url(#pummelThroughputAreaFill)"
-              isAnimationActive={false}
-            />
-            <Area
-              yAxisId="vus"
-              type="monotone"
-              dataKey="activeVUs"
-              name="Active VUs"
-              stroke={vuColor}
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
-              fill="url(#pummelVuAreaFill)"
-              isAnimationActive={false}
-            />
-            {anomalyConfig.enabled && (
-              <Line
-                yAxisId="rps"
-                type="monotone"
-                dataKey="rpsAnomalyValue"
-                name="Throughput Drop Outlier"
-                stroke="none"
-                dot={{ r: 5, fill: outlierColor, stroke: '#FFFFFF', strokeWidth: 2 }}
-                activeDot={{ r: 6, fill: outlierColor, stroke: '#FFFFFF', strokeWidth: 2 }}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-
-  const renderLatencyLineChart = (heightClass: string) => (
-    <div
-      className="min-w-0 rounded-lg border border-slate-200/80 bg-slate-50/40 p-3.5 dark:border-slate-800 dark:bg-slate-950/40"
-      data-testid="recharts-latency-line"
-    >
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-            Real-Time Latency Percentiles &amp; Moving Avg (Line)
-          </h3>
-          <p className="font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-            Avg {summary.latestAvgMs.toFixed(1)}ms · p95 {summary.latestP95Ms.toFixed(1)}ms · p99{' '}
-            {summary.latestP99Ms.toFixed(1)}ms
-          </p>
-        </div>
-        <div className="flex items-center gap-3 font-mono text-[11px] tabular-nums text-slate-600 dark:text-slate-300">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-3 bg-indigo-600 dark:bg-indigo-400" aria-hidden="true" />
-            Avg
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-3 bg-orange-600 dark:bg-orange-400" aria-hidden="true" />
-            p95
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-3 bg-rose-600 dark:bg-rose-400" aria-hidden="true" />
-            p99
-          </span>
-          {anomalyConfig.enabled && (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-red-600" aria-hidden="true" />
-              Outlier
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className={`${heightClass} w-full`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={mergedPoints}
-            syncId="pummel-telemetry"
-            margin={{ top: 8, right: 12, left: 0, bottom: 2 }}
-          >
-            <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="timeLabel"
-              tick={{ fill: axisTickColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-              tickLine={false}
-              axisLine={{ stroke: axisLineStroke }}
-              minTickGap={24}
-            />
-            <YAxis
-              tick={{ fill: axisTickColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-              tickLine={false}
-              axisLine={false}
-              width={52}
-              tickFormatter={(v: number) => `${v}ms`}
-            />
-            <Tooltip content={<TelemetryTooltip />} />
-            {summary.p95SlaThresholdMs !== null && (
-              <ReferenceLine
-                y={summary.p95SlaThresholdMs}
-                stroke="#DC2626"
-                strokeDasharray="4 4"
-                label={{
-                  value: `p95 SLA ${summary.p95SlaThresholdMs}ms`,
-                  position: 'insideTopRight',
-                  fill: slaLabelColor,
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}
-              />
-            )}
-            {anomalyConfig.enabled && (
-              <Line
-                type="monotone"
-                dataKey="p95MovingAvg"
-                name="p95 Moving Avg (ms)"
-                stroke={maColor}
-                strokeWidth={1.25}
-                strokeDasharray="2 3"
-                dot={false}
-                isAnimationActive={false}
-              />
-            )}
-            <Line
-              type="monotone"
-              dataKey="p99Ms"
-              name="p99 Latency (ms)"
-              stroke={p99Color}
-              strokeWidth={1.75}
-              strokeDasharray="5 3"
-              dot={false}
-              activeDot={{ r: 3.5, fill: p99Color, stroke: '#FFFFFF', strokeWidth: 1.5 }}
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="p95Ms"
-              name="p95 Latency (ms)"
-              stroke={p95Color}
-              strokeWidth={2.25}
-              dot={false}
-              activeDot={{ r: 4, fill: p95Color, stroke: '#FFFFFF', strokeWidth: 2 }}
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="avgMs"
-              name="Avg Latency (ms)"
-              stroke={avgColor}
-              strokeWidth={1.75}
-              dot={false}
-              activeDot={{ r: 3.5, fill: avgColor, stroke: '#FFFFFF', strokeWidth: 1.5 }}
-              isAnimationActive={false}
-            />
-            {anomalyConfig.enabled && (
-              <Line
-                type="monotone"
-                dataKey="p95AnomalyValue"
-                name="p95 Statistical Outlier"
-                stroke="none"
-                dot={{ r: 5.5, fill: outlierColor, stroke: '#FFFFFF', strokeWidth: 2 }}
-                activeDot={{ r: 6.5, fill: outlierColor, stroke: '#FFFFFF', strokeWidth: 2 }}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-
-  const renderCombinedChart = () => (
-    <div
-      className="h-72 w-full"
-      data-testid="recharts-performance-chart"
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart
-          data={mergedPoints}
-          margin={{ top: 10, right: 12, left: 0, bottom: 4 }}
-        >
-          <defs>
-            <linearGradient id="pummelCombinedRpsFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={rpsColor} stopOpacity={isDark ? 0.34 : 0.22} />
-              <stop offset="95%" stopColor={rpsColor} stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-          <XAxis
-            dataKey="timeLabel"
-            tick={{ fill: axisTickColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-            tickLine={false}
-            axisLine={{ stroke: axisLineStroke }}
-            minTickGap={24}
-          />
-          <YAxis
-            yAxisId="rps"
-            orientation="left"
-            tick={{ fill: rpsAxisColor, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-            tickLine={false}
-            axisLine={false}
-            width={52}
-          />
-          <YAxis
-            yAxisId="latency"
-            orientation="right"
-            tick={{ fill: p95Color, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-            tickLine={false}
-            axisLine={false}
-            width={54}
-            tickFormatter={(v: number) => `${v}ms`}
-          />
-          <Tooltip content={<TelemetryTooltip />} />
-          {summary.p95SlaThresholdMs !== null && (
-            <ReferenceLine
-              yAxisId="latency"
-              y={summary.p95SlaThresholdMs}
-              stroke="#DC2626"
-              strokeDasharray="4 4"
-              label={{
-                value: `SLA ${summary.p95SlaThresholdMs}ms`,
-                position: 'insideTopRight',
-                fill: slaLabelColor,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono, monospace',
-              }}
-            />
-          )}
-          <Area
-            yAxisId="rps"
-            type="monotone"
-            dataKey="rps"
-            name="Throughput (req/s)"
-            stroke={rpsColor}
-            strokeWidth={2}
-            fill="url(#pummelCombinedRpsFill)"
-            isAnimationActive={false}
-          />
-          {anomalyConfig.enabled && (
-            <Line
-              yAxisId="latency"
-              type="monotone"
-              dataKey="p95MovingAvg"
-              name="p95 Moving Avg (ms)"
-              stroke={maColor}
-              strokeWidth={1.25}
-              strokeDasharray="2 3"
-              dot={false}
-              isAnimationActive={false}
-            />
-          )}
-          <Line
-            yAxisId="latency"
-            type="monotone"
-            dataKey="p95Ms"
-            name="p95 Latency (ms)"
-            stroke={p95Color}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4, fill: p95Color, stroke: '#FFFFFF', strokeWidth: 2 }}
-            isAnimationActive={false}
-          />
-          <Line
-            yAxisId="latency"
-            type="monotone"
-            dataKey="p99Ms"
-            name="p99 Latency (ms)"
-            stroke={p99Color}
-            strokeWidth={1.5}
-            strokeDasharray="4 3"
-            dot={false}
-            isAnimationActive={false}
-          />
-          {anomalyConfig.enabled && (
-            <Line
-              yAxisId="latency"
-              type="monotone"
-              dataKey="p95AnomalyValue"
-              name="p95 Statistical Outlier"
-              stroke="none"
-              dot={{ r: 5.5, fill: outlierColor, stroke: '#FFFFFF', strokeWidth: 2 }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
-  );
+  const colors = useMemo(() => getTelemetryChartColors(isDark), [isDark]);
 
   return (
     <section
@@ -624,7 +157,10 @@ export function PerformanceTrendsChart({
                 >
                   {notificationPermission === 'granted' ? (
                     <>
-                      <Bell className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                      <Bell
+                        className="h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                        aria-hidden="true"
+                      />
                       Alerts Active
                     </>
                   ) : (
@@ -715,13 +251,48 @@ export function PerformanceTrendsChart({
           <>
             {viewMode === 'split' && (
               <div className="grid gap-4 lg:grid-cols-2">
-                {renderThroughputAreaChart('h-64')}
-                {renderLatencyLineChart('h-64')}
+                <ThroughputAreaChart
+                  mergedPoints={mergedPoints}
+                  summary={summary}
+                  colors={colors}
+                  anomalyEnabled={anomalyConfig.enabled}
+                  heightClass="h-64"
+                />
+                <LatencyLineChart
+                  mergedPoints={mergedPoints}
+                  summary={summary}
+                  colors={colors}
+                  anomalyEnabled={anomalyConfig.enabled}
+                  heightClass="h-64"
+                />
               </div>
             )}
-            {viewMode === 'throughput' && renderThroughputAreaChart('h-72')}
-            {viewMode === 'latency' && renderLatencyLineChart('h-72')}
-            {viewMode === 'combined' && renderCombinedChart()}
+            {viewMode === 'throughput' && (
+              <ThroughputAreaChart
+                mergedPoints={mergedPoints}
+                summary={summary}
+                colors={colors}
+                anomalyEnabled={anomalyConfig.enabled}
+                heightClass="h-72"
+              />
+            )}
+            {viewMode === 'latency' && (
+              <LatencyLineChart
+                mergedPoints={mergedPoints}
+                summary={summary}
+                colors={colors}
+                anomalyEnabled={anomalyConfig.enabled}
+                heightClass="h-72"
+              />
+            )}
+            {viewMode === 'combined' && (
+              <CombinedTelemetryChart
+                mergedPoints={mergedPoints}
+                summary={summary}
+                colors={colors}
+                anomalyEnabled={anomalyConfig.enabled}
+              />
+            )}
 
             {/* Quiet Legend Footer */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
