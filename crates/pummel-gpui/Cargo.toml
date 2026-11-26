@@ -12,7 +12,7 @@ path = "src/main.rs"
 pummel = { path = "../.." }
 gpui = { git = "https://github.com/zed-industries/zed", rev = "a3ce8d5e88e35697b2ba1cf9cb3c6816089b8281", package = "gpui" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "a3ce8d5e88e35697b2ba1cf9cb3c6816089b8281", package = "gpui_platform", features = ["font-kit", "wayland", "x11"] }
-pc_gpui_kit = { git = "https://github.com/py-centric/pc_gpui_kit", rev = "bbaa304df9092ec5062b6db2b01b2ccfd4543399" }
+pc_gpui_kit = { git = "https://github.com/py-centric/pc_gpui_kit", rev = "5de9edd4c99494ea4df957c7ae83264aacdc81b0" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

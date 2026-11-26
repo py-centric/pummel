@@ -4490,8 +4490,8 @@ dependencies = [
 
 [[package]]
 name = "pc_gpui_kit"
-version = "0.2.0"
-source = "git+https://github.com/py-centric/pc_gpui_kit?rev=bbaa304df9092ec5062b6db2b01b2ccfd4543399#bbaa304df9092ec5062b6db2b01b2ccfd4543399"
+version = "0.3.0"
+source = "git+https://github.com/py-centric/pc_gpui_kit?rev=5de9edd4c99494ea4df957c7ae83264aacdc81b0#5de9edd4c99494ea4df957c7ae83264aacdc81b0"
 dependencies = [
  "gpui",
  "serde",
