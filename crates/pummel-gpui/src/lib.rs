@@ -48,10 +48,13 @@ impl PummelRootView {
 
 impl Render for PummelRootView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (bg, panel_bg, text_color, muted_color) = match self.state.theme {
-            ThemeMode::Dark => (rgb(0x0f172a), rgb(0x1e293b), rgb(0xf8fafc), rgb(0x94a3b8)),
-            ThemeMode::Light => (rgb(0xf8fafc), rgb(0xe2e8f0), rgb(0x0f172a), rgb(0x475569)),
+        let kit_mode = match self.state.theme {
+            ThemeMode::Dark => pc_gpui_kit::PcThemeMode::Dark,
+            ThemeMode::Light => pc_gpui_kit::PcThemeMode::Light,
         };
+        let kit = pc_gpui_kit::PcGpuiTheme::from_mode(kit_mode, false);
+        let (bg, panel_bg, text_color, muted_color) =
+            (kit.canvas, kit.surface, kit.text_primary, kit.text_muted);
 
         let active_body = match self.state.active_tab {
             ActiveTab::ClusterOverview => views::cluster::render_cluster_view(self, cx),
@@ -197,6 +200,7 @@ pub fn run_gpui_app(control_plane_port: u16, initial_projects: Vec<std::path::Pa
     });
 
     gpui_platform::application().run(move |cx: &mut App| {
+        pc_gpui_kit::init_pc_theme(cx, pc_gpui_kit::PcThemeMode::Dark, false);
         let bounds = Bounds::centered(None, gpui::size(px(1380.0), px(860.0)), cx);
         let initial_projects_clone = initial_projects.clone();
         let _ = cx.open_window(

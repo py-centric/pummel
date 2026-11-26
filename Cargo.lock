@@ -4489,6 +4489,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pc_gpui_kit"
+version = "0.2.0"
+source = "git+https://github.com/py-centric/pc_gpui_kit?rev=bbaa304df9092ec5062b6db2b01b2ccfd4543399#bbaa304df9092ec5062b6db2b01b2ccfd4543399"
+dependencies = [
+ "gpui",
+ "serde",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4870,6 +4879,7 @@ dependencies = [
  "chrono",
  "gpui",
  "gpui_platform",
+ "pc_gpui_kit",
  "pummel",
  "serde",
  "serde_json",
